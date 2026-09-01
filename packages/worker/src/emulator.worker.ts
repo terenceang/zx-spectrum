@@ -9,11 +9,17 @@ import {
   parseZ80,
 } from "@zx-spectrum/core";
 import { AudioRing, FrameRingWriter } from "./ring-buffers.js";
-import type { HostToWorkerMessage, MachineModel, WorkerToHostMessage } from "./protocol.js";
-
-const FRAME_INTERVAL_MS = 1000 / 50;
-const SAMPLE_RATE = 44100;
-const SAMPLES_PER_FRAME = Math.round(SAMPLE_RATE / 50);
+import {
+  AUDIO_CAPACITY_SAMPLES,
+  DEFAULT_SAMPLE_RATE,
+  FRAME_INTERVAL_MS,
+  MAX_FRAME_HEIGHT,
+  MAX_FRAME_WIDTH,
+  SAMPLES_PER_FRAME,
+  type HostToWorkerMessage,
+  type MachineModel,
+  type WorkerToHostMessage,
+} from "./protocol.js";
 
 const machine48k = new Machine48k();
 const machine128k = new Machine128k();
@@ -42,7 +48,7 @@ function tick(): void {
     const audio =
       model === "48k"
         ? machine48k.getAudioSamples(SAMPLES_PER_FRAME)
-        : machine128k.getAudioSamples(SAMPLES_PER_FRAME, SAMPLE_RATE);
+        : machine128k.getAudioSamples(SAMPLES_PER_FRAME, DEFAULT_SAMPLE_RATE);
 
     const playing = machine.tape.isPlaying();
     if (playing !== lastTapePlaying) {
@@ -89,8 +95,8 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
   switch (message.type) {
     case "init": {
       if (message.frameBuffer && message.audioBuffer) {
-        frameWriter = new FrameRingWriter(message.frameBuffer, 512, 384);
-        audioRing = new AudioRing(message.audioBuffer, SAMPLE_RATE); // ~1s capacity
+        frameWriter = new FrameRingWriter(message.frameBuffer, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
+        audioRing = new AudioRing(message.audioBuffer, AUDIO_CAPACITY_SAMPLES);
       }
       post({ type: "ready" });
       break;

@@ -88,7 +88,7 @@ load with real loading stripes/sound.
 - [x] `applySnapshotTo128k` — pushes `.z80`/`.sna` 128K snapshots' already-parsed
       `banks`/`pagedBanks` (see `ParsedZ80Snapshot`/`ParsedSnaSnapshot`) directly
       into the right physical RAM bank, bypassing paging, plus AY register state
-      via `ayRegisters`
+      via `ayRegisters` (with 48K snapshot fallback mapping into banks 5/2/0)
 - [x] App: model selector (48K/128K), ROM input accepts either one 48K ROM or two
       128K ROMs (sorted by filename -> ROM0/ROM1), cached in IndexedDB per model
 - [x] Verified end-to-end against the real `128-0.rom`/`128-1.rom` images: boots

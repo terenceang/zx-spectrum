@@ -1,5 +1,8 @@
 import {
+  AUDIO_CAPACITY_SAMPLES,
   AUDIO_HEADER_INT32_LENGTH,
+  MAX_FRAME_HEIGHT,
+  MAX_FRAME_WIDTH,
   audioBufferByteLength,
   frameBufferByteLength,
   type HostToWorkerMessage,
@@ -7,10 +10,6 @@ import {
   type WorkerToHostMessage,
 } from "../../worker/src/protocol.js";
 import { FrameRingReader } from "../../worker/src/ring-buffers.js";
-
-const MAX_WIDTH = 512;
-const MAX_HEIGHT = 384;
-const AUDIO_CAPACITY_SAMPLES = 44100; // ~1s
 
 export type Frame = { pixels: Uint8Array; width: number; height: number };
 
@@ -42,9 +41,9 @@ export class EmulatorClient {
     let audioBuffer: SharedArrayBuffer | null = null;
 
     if (this.usesSharedMemory) {
-      frameBuffer = new SharedArrayBuffer(frameBufferByteLength(MAX_WIDTH, MAX_HEIGHT));
+      frameBuffer = new SharedArrayBuffer(frameBufferByteLength(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT));
       audioBuffer = new SharedArrayBuffer(audioBufferByteLength(AUDIO_CAPACITY_SAMPLES));
-      this.frameReader = new FrameRingReader(frameBuffer, MAX_WIDTH, MAX_HEIGHT);
+      this.frameReader = new FrameRingReader(frameBuffer, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
       this.audioBuffer = audioBuffer;
     }
 

@@ -9,8 +9,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import {
   Machine128k,
   Machine48k,
+  SNAPSHOT_EXTENSIONS,
   SPECTRUM_KEY_MATRIX,
   SPECTRUM_PALETTE_RGB,
+  TAPE_EXTENSIONS,
   applySnapshotTo128k,
   applySnapshotTo48k,
   parseSna,
@@ -38,7 +40,7 @@ function requireMachine(): Machine48k | Machine128k {
   return machine;
 }
 
-const server = new McpServer({ name: "zx-spectrum", version: "0.0.1" });
+const server = new McpServer({ name: "zx-spectrum", version: "0.2.0" });
 
 server.registerTool(
   "load_rom",
@@ -79,9 +81,6 @@ server.registerTool(
     return { content: [{ type: "text", text: `Loaded ${newModel} ROM and reset the machine.` }] };
   },
 );
-
-const SNAPSHOT_EXTENSIONS = { ".sna": "sna", ".z80": "z80" } as const;
-const TAPE_EXTENSIONS = { ".tap": "tap", ".tzx": "tzx" } as const;
 
 function detectFormat<T extends Record<string, string>>(path: string, table: T): T[keyof T] {
   const lower = path.toLowerCase();

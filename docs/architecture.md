@@ -133,6 +133,17 @@ about the machine's hardware, not about any particular input device, so unlike
 codes to these same coordinates, a genuinely device-specific concern) it belongs in
 core and both packages import the one copy.
 
+The bridge protocol wire format (`BridgeCommand`), port number (`MCP_BRIDGE_PORT`),
+and recognized file extension maps (`SNAPSHOT_EXTENSIONS`, `TAPE_EXTENSIONS`) are
+defined in `packages/core/src/io/bridgeProtocol.ts` and shared across both the MCP
+server and the browser UI as a single source of truth.
+
+Shared ring buffer geometry constants (`MAX_FRAME_WIDTH`, `MAX_FRAME_HEIGHT`,
+`AUDIO_CAPACITY_SAMPLES`, `DEFAULT_SAMPLE_RATE`, `SPECTRUM_FPS`) are defined in
+`packages/worker/src/protocol.ts`. The `AudioWorkletProcessor` (`beeper-processor.ts`)
+directly instantiates `AudioRing` from `packages/worker/src/ring-buffers.ts` rather
+than reimplementing the lock-free read logic.
+
 ## ROM sourcing
 
 The app never bundles Sinclair/Amstrad ROM images. Users supply their own ROM file

@@ -1,21 +1,8 @@
 import { WebSocketServer, type WebSocket } from "ws";
+import { type BridgeCommand, MCP_BRIDGE_PORT as BRIDGE_PORT } from "../../core/dist/index.js";
 
-/** Wire format between this bridge and the browser app's matching client in
- * packages/app/src/main.ts. Duplicated there rather than shared — it's a dozen
- * lines and the two sides build for different runtimes (Node vs. browser). */
-export type BridgeCommand =
-  | { reqId: string; cmd: "getStatus" }
-  | { reqId: string; cmd: "readScreen" }
-  | { reqId: string; cmd: "loadRom"; model: "48k" | "128k"; romBase64: string }
-  | { reqId: string; cmd: "loadSnapshot"; format: "sna" | "z80"; dataBase64: string }
-  | { reqId: string; cmd: "loadTape"; format: "tap" | "tzx"; dataBase64: string }
-  | { reqId: string; cmd: "playTape" }
-  | { reqId: string; cmd: "stopTape" }
-  | { reqId: string; cmd: "reset" }
-  | { reqId: string; cmd: "keyEvent"; row: number; bit: number; down: boolean }
-  | { reqId: string; cmd: "typeText"; text: string };
-
-export const BRIDGE_PORT = 8790;
+export type { BridgeCommand };
+export { BRIDGE_PORT };
 
 const instances = new Map<string, WebSocket>();
 const pending = new Map<string, { resolve: (value: unknown) => void; reject: (reason: Error) => void }>();

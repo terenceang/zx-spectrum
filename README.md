@@ -64,6 +64,6 @@ files, and you're responsible for how you use them.
 
 ## Author
 
-**Terence Ang** (motionfxdesign) — [terenceang.com](https://terenceang.com) — v0.1.0
+**Terence Ang** (motionfxdesign) — [terenceang.com](https://terenceang.com) — v0.2.0
 
 Vibe coded with [Claude Code](https://claude.com/claude-code).

@@ -1,3 +1,9 @@
+import {
+  MCP_BRIDGE_PORT,
+  SNAPSHOT_EXTENSIONS,
+  TAPE_EXTENSIONS,
+  type BridgeCommand as McpBridgeCommand,
+} from "@zx-spectrum/core";
 import type { MachineModel } from "../../worker/src/protocol.js";
 import { AudioSink } from "./audio/audioSink.js";
 import { CAPS_SHIFT, KEY_MAP, SYMBOL_CHAR_MAP, SYMBOL_SHIFT } from "./input/keyMapping.js";
@@ -56,9 +62,6 @@ async function tryLoadCachedRom(): Promise<void> {
     status.textContent = `Load ${hint} to begin (never bundled — see README).`;
   }
 }
-
-const SNAPSHOT_EXTENSIONS = { ".sna": "sna", ".z80": "z80" } as const;
-const TAPE_EXTENSIONS = { ".tap": "tap", ".tzx": "tzx" } as const;
 
 async function loadMediaFile(file: File): Promise<void> {
   if (!romLoaded) {
@@ -217,23 +220,8 @@ client.onReady = () => {
 void tryLoadCachedRom();
 
 // MCP bridge: lets the zx-spectrum MCP server (packages/mcp-server) drive this
-// tab directly instead of its own private headless machine. Wire format mirrors
-// BridgeCommand in packages/mcp-server/src/bridge.ts — duplicated, not shared,
-// since the two sides build for different runtimes (browser vs. Node).
-const MCP_BRIDGE_PORT = 8790;
+// tab directly instead of its own private headless machine.
 const mcpInstanceId = Math.random().toString(36).slice(2, 8);
-
-type McpBridgeCommand =
-  | { reqId: string; cmd: "getStatus" }
-  | { reqId: string; cmd: "readScreen" }
-  | { reqId: string; cmd: "loadRom"; model: MachineModel; romBase64: string }
-  | { reqId: string; cmd: "loadSnapshot"; format: "sna" | "z80"; dataBase64: string }
-  | { reqId: string; cmd: "loadTape"; format: "tap" | "tzx"; dataBase64: string }
-  | { reqId: string; cmd: "playTape" }
-  | { reqId: string; cmd: "stopTape" }
-  | { reqId: string; cmd: "reset" }
-  | { reqId: string; cmd: "keyEvent"; row: number; bit: number; down: boolean }
-  | { reqId: string; cmd: "typeText"; text: string };
 
 const mcpIndicator = document.getElementById("mcp-indicator") as HTMLDivElement;
 const mcpIndicatorText = document.getElementById("mcp-indicator-text") as HTMLSpanElement;

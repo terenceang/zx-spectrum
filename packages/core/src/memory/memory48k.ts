@@ -14,6 +14,10 @@ export class Memory48k implements MemoryDevice {
     this.rom.set(rom);
   }
 
+  loadRam(ram: Uint8Array): void {
+    this.ram.set(ram.subarray(0, 0xc000));
+  }
+
   read8(address: number): number {
     const addr = address & 0xffff;
     return addr < 0x4000 ? this.rom[addr]! : this.ram[addr - 0x4000]!;

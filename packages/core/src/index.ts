@@ -34,3 +34,6 @@ export { parseTap } from "./loaders/tap.js";
 export { parseTzx } from "./loaders/tzx.js";
 export type { TapePulse, TapePulseSequence } from "./loaders/tapePulse.js";
 export { TapeEdgePlayer } from "./loaders/tapePlayer.js";
+
+export { MCP_BRIDGE_PORT, SNAPSHOT_EXTENSIONS, TAPE_EXTENSIONS } from "./io/bridgeProtocol.js";
+export type { BridgeCommand, SnapshotFormat, TapeFormat } from "./io/bridgeProtocol.js";

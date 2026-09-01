@@ -74,4 +74,25 @@ describe("Machine128k", () => {
     machine.memory.write8(0xc000, 0x99);
     expect(machine.memory.read8(0xc000)).toBe(0x99); // paging works again post-reset
   });
+
+  it("applies a 48K snapshot into 128K machine mapping (banks 5, 2, 0)", async () => {
+    const { applySnapshotTo128k } = await import("../loaders/apply.js");
+    const machine = new Machine128k();
+    const ram = new Uint8Array(49152);
+    ram[0] = 0x55; // start of bank 5
+    ram[0x4000] = 0x22; // start of bank 2
+    ram[0x8000] = 0x00; // start of bank 0
+
+    applySnapshotTo128k(machine, {
+      model: "48k",
+      cpu: machine.cpu.getState(),
+      border: 1,
+      ram,
+    });
+
+    // Default 128K map (port 7FFD=0): bank 5 at 0x4000, bank 2 at 0x8000, bank 0 at 0xC000
+    expect(machine.memory.read8(0x4000)).toBe(0x55);
+    expect(machine.memory.read8(0x8000)).toBe(0x22);
+    expect(machine.memory.read8(0xc000)).toBe(0x00);
+  });
 });
