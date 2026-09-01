@@ -90,6 +90,10 @@ export class EmulatorClient {
     this.send({ type: "stopTape" });
   }
 
+  setTapeSound(enabled: boolean): void {
+    this.send({ type: "setTapeSound", enabled });
+  }
+
   sendKey(row: number, bit: number, down: boolean): void {
     this.send({ type: "keyEvent", row, bit, down });
   }

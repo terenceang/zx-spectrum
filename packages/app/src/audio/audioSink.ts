@@ -20,27 +20,46 @@ import type { EmulatorClient } from "../worker-client.js";
 export class AudioSink {
   private audioContext: AudioContext | null = null;
   private workletNode: AudioWorkletNode | null = null;
+  private gainNode: GainNode | null = null;
   private nextFallbackStartTime = 0;
+  private volume: number;
+  private muted: boolean;
+
+  constructor(initialVolume = 0.5, initialMuted = false) {
+    this.volume = Math.max(0, Math.min(1, initialVolume));
+    this.muted = initialMuted;
+  }
 
   async start(client: EmulatorClient): Promise<void> {
-    this.audioContext = new AudioContext({ sampleRate: 44100 });
-    if (this.audioContext.state === "suspended") await this.audioContext.resume();
+    if (!this.audioContext) {
+      this.audioContext = new AudioContext({ sampleRate: 44100 });
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.value = this.muted ? 0 : this.volume;
+      this.gainNode.connect(this.audioContext.destination);
+    }
+    if (this.audioContext.state === "suspended") {
+      try {
+        await this.audioContext.resume();
+      } catch {
+        // Autoplay policy may block resume before user interaction
+      }
+    }
 
-    if (client.usesSharedMemory && client.audioBuffer) {
+    if (client.usesSharedMemory && client.audioBuffer && !this.workletNode) {
       await this.audioContext.audioWorklet.addModule(beeperProcessorUrl);
       this.workletNode = new AudioWorkletNode(this.audioContext, "beeper-processor");
       this.workletNode.port.postMessage({
         buffer: client.audioBuffer,
         capacity: client.audioCapacitySamples,
       });
-      this.workletNode.connect(this.audioContext.destination);
+      this.workletNode.connect(this.gainNode!);
     }
   }
 
   /** Call once per rAF tick when running in fallback mode (usesSharedMemory ===
    * false); no-op otherwise. */
   pumpFallbackAudio(client: EmulatorClient): void {
-    if (!this.audioContext || client.usesSharedMemory) return;
+    if (!this.audioContext || !this.gainNode || client.usesSharedMemory) return;
     const samples = client.takeFallbackAudio();
     if (!samples || samples.length === 0) return;
 
@@ -48,7 +67,7 @@ export class AudioSink {
     buffer.getChannelData(0).set(samples);
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.audioContext.destination);
+    source.connect(this.gainNode);
 
     const now = this.audioContext.currentTime;
     const startTime = Math.max(now, this.nextFallbackStartTime);
@@ -56,11 +75,44 @@ export class AudioSink {
     this.nextFallbackStartTime = startTime + buffer.duration;
   }
 
+  setVolume(volume: number): void {
+    this.volume = Math.max(0, Math.min(1, volume));
+    if (this.gainNode && !this.muted) {
+      this.gainNode.gain.setValueAtTime(this.volume, this.audioContext?.currentTime ?? 0);
+    }
+  }
+
+  getVolume(): number {
+    return this.volume;
+  }
+
+  setMuted(muted: boolean): void {
+    this.muted = muted;
+    if (this.gainNode) {
+      this.gainNode.gain.setValueAtTime(this.muted ? 0 : this.volume, this.audioContext?.currentTime ?? 0);
+    }
+  }
+
+  isMuted(): boolean {
+    return this.muted;
+  }
+
+  toggleMute(): boolean {
+    this.setMuted(!this.muted);
+    return this.muted;
+  }
+
   suspend(): void {
     void this.audioContext?.suspend();
   }
 
-  resume(): void {
-    void this.audioContext?.resume();
+  async resume(): Promise<void> {
+    if (this.audioContext && this.audioContext.state === "suspended") {
+      try {
+        await this.audioContext.resume();
+      } catch {
+        // Autoplay policy may block until user interaction
+      }
+    }
   }
 }

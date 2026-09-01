@@ -18,9 +18,11 @@ export class Machine128k implements Z80Bus {
   readonly ula = new UlaEngine(ULA_128K_PROFILE, this.keyboard);
   readonly ay = new AyChip();
   readonly tape = new TapeEdgePlayer();
+  tapeSoundEnabled = true;
 
   tStates = 0;
   totalTStates = 0;
+  private frameStartTotalT = 0;
   private readonly frameTStateBudget = tStatesPerFrame(ULA_128K_PROFILE);
 
   constructor() {
@@ -55,24 +57,30 @@ export class Machine128k implements Z80Bus {
   }
 
   runFrame(): void {
+    this.ula.beginFrame();
     this.tStates = 0;
+    this.frameStartTotalT = this.totalTStates;
     while (this.tStates < this.frameTStateBudget) {
       this.cpu.step();
     }
-    this.ula.endFrame();
   }
 
   getFrameBuffer(): { pixels: Uint8Array; width: number; height: number } {
     return this.ula.renderFrame(this.memory);
   }
 
-  /** Mixes the beeper and AY chip down to one buffer. */
+  /** Mixes the beeper, AY chip, and optional tape audio down to one buffer. */
   getAudioSamples(sampleCount: number, sampleRate: number): Float32Array {
     const beeper = this.ula.beeper.renderFrame(this.frameTStateBudget, sampleCount);
     const ay = this.ay.renderFrame(sampleCount, sampleRate);
+    const tapeAudio =
+      this.tapeSoundEnabled && this.tape.isPlaying()
+        ? this.tape.renderFrameAudio(this.frameStartTotalT, this.frameTStateBudget, sampleCount)
+        : null;
     const out = new Float32Array(sampleCount);
     for (let i = 0; i < sampleCount; i++) {
-      out[i] = Math.max(-1, Math.min(1, beeper[i]! * 0.5 + ay[i]! * 0.5));
+      const tapeVal = tapeAudio ? tapeAudio[i]! * 0.4 : 0;
+      out[i] = Math.max(-1, Math.min(1, beeper[i]! * 0.5 + ay[i]! * 0.5 + tapeVal));
     }
     return out;
   }

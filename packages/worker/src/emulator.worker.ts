@@ -138,6 +138,11 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       currentMachine().stopTape();
       break;
     }
+    case "setTapeSound": {
+      machine48k.tapeSoundEnabled = message.enabled;
+      machine128k.tapeSoundEnabled = message.enabled;
+      break;
+    }
     case "keyEvent": {
       currentMachine().keyboard.setKey(message.row, message.bit, message.down);
       break;

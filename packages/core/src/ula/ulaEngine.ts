@@ -30,7 +30,7 @@ export class UlaEngine {
 
   reset(): void {
     this.borderColor = 0;
-    this.borderChanges = [];
+    this.borderChanges = [{ tState: 0, color: 0 }];
     this.flashPhase = false;
     this.flashFrameCounter = 0;
     this.beeper.reset();
@@ -75,8 +75,8 @@ export class UlaEngine {
     return CONTENTION_PATTERN[offsetInLine % 8]!;
   }
 
-  /** Call once per frame after the CPU has run to the frame's T-state budget. */
-  endFrame(): void {
+  /** Call at the start of a frame before CPU execution begins. */
+  beginFrame(): void {
     this.flashFrameCounter++;
     if (this.flashFrameCounter >= 16) {
       this.flashFrameCounter = 0;
@@ -85,9 +85,14 @@ export class UlaEngine {
     this.borderChanges = [{ tState: 0, color: this.borderColor }];
   }
 
+  /** Call once per frame after the CPU has run to the frame's T-state budget. */
+  endFrame(): void {
+    this.beginFrame();
+  }
+
   /** Renders the full frame (border + 256x192 display) into a palette-indexed
    * (0-15) buffer, `width`x`height` where width/height come from the profile's
-   * border geometry. */
+   * border geometry. Border stripes are rasterized with per-pixel T-state accuracy. */
   renderFrame(memory: ScreenSource): { pixels: Uint8Array; width: number; height: number } {
     const borderCols = this.profile.borderSideColumns * 8;
     const width = 256 + borderCols * 2;
@@ -97,35 +102,56 @@ export class UlaEngine {
 
     let changeIndex = 0;
     let currentBorderColor = this.borderChanges[0]?.color ?? this.borderColor;
-    const lineT0 = (line: number): number =>
+
+    const lineStartT = (line: number): number =>
       this.profile.firstContendedTstate -
-      this.profile.borderTopLines * this.profile.tStatesPerLine +
+      this.profile.borderTopLines * this.profile.tStatesPerLine -
+      this.profile.borderSideColumns * 4 +
       line * this.profile.tStatesPerLine;
 
-    for (let y = 0; y < height; y++) {
-      const lineStartT = lineT0(y);
-      while (
-        changeIndex < this.borderChanges.length &&
-        this.borderChanges[changeIndex]!.tState <= lineStartT
-      ) {
-        currentBorderColor = this.borderChanges[changeIndex]!.color;
-        changeIndex++;
-      }
+    const fillBorderSpan = (xStart: number, xEnd: number, lineT: number, rowBase: number): void => {
+      let x = xStart;
+      while (x < xEnd) {
+        const currentPixelT = lineT + (x >> 1);
+        while (
+          changeIndex + 1 < this.borderChanges.length &&
+          this.borderChanges[changeIndex + 1]!.tState <= currentPixelT
+        ) {
+          changeIndex++;
+          currentBorderColor = this.borderChanges[changeIndex]!.color;
+        }
 
+        if (changeIndex + 1 < this.borderChanges.length) {
+          const nextChange = this.borderChanges[changeIndex + 1]!;
+          const nextChangeX = (nextChange.tState - lineT) * 2;
+          if (nextChangeX < xEnd) {
+            const fillEnd = Math.max(x, nextChangeX);
+            if (fillEnd > x) {
+              pixels.fill(paletteIndex(currentBorderColor, false), rowBase + x, rowBase + fillEnd);
+              x = fillEnd;
+            }
+            changeIndex++;
+            currentBorderColor = nextChange.color;
+            continue;
+          }
+        }
+
+        pixels.fill(paletteIndex(currentBorderColor, false), rowBase + x, rowBase + xEnd);
+        break;
+      }
+    };
+
+    for (let y = 0; y < height; y++) {
+      const lineT = lineStartT(y);
       const isDisplayLine = y >= this.profile.borderTopLines && y < this.profile.borderTopLines + 192;
       const rowBase = y * width;
 
       if (!isDisplayLine) {
-        pixels.fill(paletteIndex(currentBorderColor, false), rowBase, rowBase + width);
+        fillBorderSpan(0, width, lineT, rowBase);
         continue;
       }
 
-      pixels.fill(paletteIndex(currentBorderColor, false), rowBase, rowBase + borderCols);
-      pixels.fill(
-        paletteIndex(currentBorderColor, false),
-        rowBase + borderCols + 256,
-        rowBase + width,
-      );
+      fillBorderSpan(0, borderCols, lineT, rowBase);
 
       const screenY = y - this.profile.borderTopLines;
       const pixelRowOffset =
@@ -148,6 +174,8 @@ export class UlaEngine {
           pixels[rowBase + borderCols + xByte * 8 + bit] = useInk ? inkIndex : paperIndex;
         }
       }
+
+      fillBorderSpan(borderCols + 256, width, lineT, rowBase);
     }
 
     return { pixels, width, height };

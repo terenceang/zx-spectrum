@@ -21,6 +21,7 @@ import { EmulatorClient } from "./worker-client.js";
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
 const normalKeyboardToggle = document.getElementById("normal-keyboard-toggle") as HTMLInputElement;
+const tapeSoundToggle = document.getElementById("tape-sound-toggle") as HTMLInputElement | null;
 const romInput = document.getElementById("rom-input") as HTMLInputElement;
 const romFileText = document.getElementById("rom-file-text") as HTMLSpanElement | null;
 const snapshotInput = document.getElementById("snapshot-input") as HTMLInputElement;
@@ -28,14 +29,86 @@ const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElem
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
 const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement;
 const tapeBtn = document.getElementById("tape-btn") as HTMLButtonElement;
+const muteBtn = document.getElementById("mute-btn") as HTMLButtonElement | null;
+const volumeIcon = document.getElementById("volume-icon") as SVGElement | null;
+const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement | null;
+const volumeValue = document.getElementById("volume-value") as HTMLSpanElement | null;
 const status = document.getElementById("status") as HTMLDivElement;
+
+const savedVolume = parseFloat(localStorage.getItem("zx_spectrum_volume") ?? "0.5");
+const savedMuted = localStorage.getItem("zx_spectrum_muted") === "true";
+const initialVolume = isNaN(savedVolume) ? 0.5 : Math.max(0, Math.min(1, savedVolume));
 
 const display = new Display(canvas);
 const client = new EmulatorClient();
-const audio = new AudioSink();
+const audio = new AudioSink(initialVolume, savedMuted);
+
+function updateVolumeUi(): void {
+  const isMuted = audio.isMuted();
+  const vol = audio.getVolume();
+  const percent = Math.round(vol * 100);
+
+  if (volumeSlider) volumeSlider.value = isMuted ? "0" : percent.toString();
+  if (volumeValue) volumeValue.textContent = isMuted ? "Muted" : `${percent}%`;
+
+  if (volumeIcon) {
+    if (isMuted || vol === 0) {
+      volumeIcon.innerHTML = `
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="9" x2="17" y2="15"></line>
+        <line x1="17" y1="9" x2="23" y2="15"></line>
+      `;
+      muteBtn?.setAttribute("title", "Unmute audio");
+    } else if (vol < 0.5) {
+      volumeIcon.innerHTML = `
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      `;
+      muteBtn?.setAttribute("title", "Mute audio");
+    } else {
+      volumeIcon.innerHTML = `
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+      `;
+      muteBtn?.setAttribute("title", "Mute audio");
+    }
+  }
+}
+
+updateVolumeUi();
+
+volumeSlider?.addEventListener("input", async () => {
+  const val = parseInt(volumeSlider.value, 10);
+  const vol = Math.max(0, Math.min(1, val / 100));
+  audio.setVolume(vol);
+  if (audio.isMuted() && vol > 0) {
+    audio.setMuted(false);
+  }
+  localStorage.setItem("zx_spectrum_volume", vol.toString());
+  localStorage.setItem("zx_spectrum_muted", audio.isMuted().toString());
+  updateVolumeUi();
+  await ensureAudioStarted();
+});
+
+muteBtn?.addEventListener("click", async () => {
+  audio.toggleMute();
+  localStorage.setItem("zx_spectrum_muted", audio.isMuted().toString());
+  updateVolumeUi();
+  await ensureAudioStarted();
+});
+
+const savedTapeSound = localStorage.getItem("zx_spectrum_tape_sound") !== "false";
+if (tapeSoundToggle) tapeSoundToggle.checked = savedTapeSound;
+client.setTapeSound(savedTapeSound);
+
+tapeSoundToggle?.addEventListener("change", () => {
+  const enabled = tapeSoundToggle.checked;
+  localStorage.setItem("zx_spectrum_tape_sound", enabled.toString());
+  client.setTapeSound(enabled);
+});
 
 let paused = false;
-let audioStarted = false;
 let romLoaded = false;
 let tapePlaying = false;
 
@@ -54,9 +127,8 @@ client.onTapeStatus = (playing) => {
 };
 
 async function ensureAudioStarted(): Promise<void> {
-  if (audioStarted) return;
-  audioStarted = true;
   await audio.start(client);
+  await audio.resume();
 }
 
 function updateModelPrompt(): void {
@@ -253,10 +325,16 @@ tapeBtn.addEventListener("click", () => {
   else client.playTape();
 });
 
+// Ensure audio starts on the first user gesture (click/pointer or keydown)
+window.addEventListener("pointerdown", () => {
+  void ensureAudioStarted();
+});
+
 // PC keyboard -> Matrix mapping
 const activeSymbolKeys = new Map<string, { row: number; bit: number }>();
 
 window.addEventListener("keydown", (e) => {
+  void ensureAudioStarted();
   if (normalKeyboardToggle.checked) {
     const target = SYMBOL_CHAR_MAP[e.key];
     if (target) {

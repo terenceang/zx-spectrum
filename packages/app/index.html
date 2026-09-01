@@ -84,6 +84,26 @@
             <span>Normal keyboard</span>
           </label>
 
+          <label
+            class="control-checkbox"
+            title="Play tape loading audio (pilot tone and data screeching) through the speaker while loading tapes"
+          >
+            <input id="tape-sound-toggle" type="checkbox" checked />
+            <span>Loading tones</span>
+          </label>
+
+          <div class="control-group volume-group">
+            <button id="mute-btn" class="btn btn-icon" type="button" title="Mute/Unmute audio" aria-label="Mute/Unmute audio">
+              <svg id="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path class="vol-wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path class="vol-wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+            </button>
+            <input id="volume-slider" type="range" min="0" max="100" value="50" class="volume-slider" title="Volume" aria-label="Volume slider" />
+            <span id="volume-value" class="volume-value">50%</span>
+          </div>
+
           <div class="action-buttons">
             <button id="pause-btn" class="btn" type="button">Pause</button>
             <button id="reset-btn" class="btn" type="button">Reset</button>

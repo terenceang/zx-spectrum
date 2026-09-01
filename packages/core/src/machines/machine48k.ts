@@ -18,12 +18,14 @@ export class Machine48k implements Z80Bus {
   readonly keyboard = new KeyboardState();
   readonly ula = new UlaEngine(ULA_48K_PROFILE, this.keyboard);
   readonly tape = new TapeEdgePlayer();
+  tapeSoundEnabled = true;
 
   /** Resets every frame — used for contention/interrupt timing within a frame. */
   tStates = 0;
   /** Never resets — tape playback timing spans many frames, so it needs a clock
    * that doesn't restart each frame the way `tStates` does. */
   totalTStates = 0;
+  private frameStartTotalT = 0;
   private readonly frameTStateBudget = tStatesPerFrame(ULA_48K_PROFILE);
 
   constructor() {
@@ -54,14 +56,15 @@ export class Machine48k implements Z80Bus {
     this.tStates = 0;
   }
 
-  /** Runs the CPU until this frame's T-state budget is spent, then advances the
-   * ULA's flash/border-log bookkeeping for the next frame. */
+  /** Runs the CPU until this frame's T-state budget is spent, recording border
+   * changes and beeper edges for subsequent rendering. */
   runFrame(): void {
+    this.ula.beginFrame();
     this.tStates = 0;
+    this.frameStartTotalT = this.totalTStates;
     while (this.tStates < this.frameTStateBudget) {
       this.cpu.step();
     }
-    this.ula.endFrame();
   }
 
   getFrameBuffer(): { pixels: Uint8Array; width: number; height: number } {
@@ -69,7 +72,20 @@ export class Machine48k implements Z80Bus {
   }
 
   getAudioSamples(sampleCount: number): Float32Array {
-    return this.ula.beeper.renderFrame(this.frameTStateBudget, sampleCount);
+    const beeper = this.ula.beeper.renderFrame(this.frameTStateBudget, sampleCount);
+    if (!this.tapeSoundEnabled || !this.tape.isPlaying()) {
+      return beeper;
+    }
+    const tapeAudio = this.tape.renderFrameAudio(
+      this.frameStartTotalT,
+      this.frameTStateBudget,
+      sampleCount,
+    );
+    const out = new Float32Array(sampleCount);
+    for (let i = 0; i < sampleCount; i++) {
+      out[i] = Math.max(-1, Math.min(1, beeper[i]! + tapeAudio[i]! * 0.4));
+    }
+    return out;
   }
 
   // ---- Z80Bus ---------------------------------------------------------------

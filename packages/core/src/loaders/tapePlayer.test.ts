@@ -41,4 +41,17 @@ describe("TapeEdgePlayer", () => {
     expect(player.levelAt(50)).toBe(0);
     expect(player.isPlaying()).toBe(false);
   });
+
+  it("renders frame audio samples for tape loading screech tones", () => {
+    const player = new TapeEdgePlayer();
+    player.load(pulses);
+    player.start(0);
+
+    const samples = player.renderFrameAudio(0, 350, 7);
+    expect(samples.length).toBe(7);
+    // Samples during the first pulse (level 1) should be positive
+    expect(samples[0]).toBeGreaterThan(0.5);
+    // Samples during the second pulse (level 0) should transition negative
+    expect(samples[3]).toBeLessThan(0.1);
+  });
 });

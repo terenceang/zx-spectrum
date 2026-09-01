@@ -54,11 +54,14 @@ export class AudioRing {
   private readonly header: Int32Array;
   private readonly samples: Float32Array;
   private readonly capacity: number;
+  private readonly minBufferSamples: number;
+  private prebuffered = false;
 
-  constructor(buffer: SharedArrayBuffer, capacitySamples: number) {
+  constructor(buffer: SharedArrayBuffer, capacitySamples: number, minBufferSamples = 1764) {
     this.header = new Int32Array(buffer, 0, AUDIO_HEADER_INT32_LENGTH);
     this.samples = new Float32Array(buffer, AUDIO_HEADER_INT32_LENGTH * 4, capacitySamples);
     this.capacity = capacitySamples;
+    this.minBufferSamples = minBufferSamples;
     if (Atomics.load(this.header, 2) === 0) Atomics.store(this.header, 2, capacitySamples);
   }
 
@@ -81,11 +84,28 @@ export class AudioRing {
   }
 
   /** Consumer side (AudioWorkletProcessor): fills `out` with available samples,
-   * padding with silence (0) if the ring underruns. */
+   * padding with silence (0) if the ring underruns. Requires an initial prebuffer
+   * watermark (~40ms) to absorb frame-interval jitter. */
   read(out: Float32Array): void {
     let readIndex = Atomics.load(this.header, 0);
     const writeIndex = Atomics.load(this.header, 1);
     const available = (writeIndex - readIndex + this.capacity) % this.capacity;
+
+    if (!this.prebuffered) {
+      if (available >= this.minBufferSamples) {
+        this.prebuffered = true;
+      } else {
+        out.fill(0);
+        return;
+      }
+    }
+
+    if (available === 0) {
+      this.prebuffered = false;
+      out.fill(0);
+      return;
+    }
+
     const count = Math.min(available, out.length);
     for (let i = 0; i < count; i++) {
       out[i] = this.samples[readIndex]!;
