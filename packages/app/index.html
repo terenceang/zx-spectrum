@@ -3,98 +3,113 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TA://SPECTRUM — Sinclair ZX Spectrum Emulator</title>
+    <meta
+      name="description"
+      content="Cycle-accurate 48K / 128K Sinclair ZX Spectrum emulation in pure TypeScript & Web Workers with zero-latency audio and MCP bridge."
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>ZX Spectrum Emulator</title>
-    <style>
-      body {
-        font-family: sans-serif;
-        background: #222;
-        color: #eee;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem;
-      }
-      canvas {
-        image-rendering: pixelated;
-        width: 640px;
-        max-width: 100%;
-        border: 2px solid #444;
-      }
-      #controls {
-        display: flex;
-        gap: 0.75rem;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      #status {
-        font-size: 0.85rem;
-        color: #aaa;
-      }
-      #mcp-indicator {
-        position: fixed;
-        top: 0.5rem;
-        right: 0.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.75rem;
-        padding: 0.3rem 0.6rem;
-        border-radius: 999px;
-        background: #1a1a1a;
-        border: 1px solid #444;
-      }
-      #mcp-indicator .dot {
-        width: 0.5rem;
-        height: 0.5rem;
-        border-radius: 50%;
-        background: #888;
-      }
-      #mcp-indicator.connected .dot {
-        background: #4caf50;
-      }
-      #attribution {
-        font-size: 0.7rem;
-        color: #666;
-      }
-      #attribution a {
-        color: #888;
-      }
-    </style>
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="mcp-indicator" title="MCP bridge connection">
-      <span class="dot"></span>
-      <span id="mcp-indicator-text">MCP: offline</span>
-    </div>
-    <h1>ZX Spectrum Emulator</h1>
-    <div id="controls">
-      <label>
-        Model:
-        <select id="model-select">
-          <option value="48k">48K</option>
-          <option value="128k">128K</option>
-        </select>
-      </label>
-      <label>ROM: <input id="rom-input" type="file" accept=".rom,.bin" multiple /></label>
-      <label>Snapshot/Tape: <input id="snapshot-input" type="file" accept=".sna,.z80,.tap,.tzx" /></label>
-      <label
-        title='Types PC punctuation directly, e.g. " sends SYMBOL SHIFT+P for you'
-      >
-        <input id="normal-keyboard-toggle" type="checkbox" />
-        Normal keyboard
-      </label>
-      <button id="pause-btn">Pause</button>
-      <button id="reset-btn">Reset</button>
-      <button id="tape-btn">Play Tape</button>
-    </div>
-    <canvas id="screen" width="320" height="296"></canvas>
-    <div id="status">Load a 48K ROM to begin.</div>
-    <div id="attribution">
-      v0.2.0 &middot; Terence Ang (<a href="https://terenceang.com" target="_blank" rel="noopener">motionfxdesign</a>)
-      &middot; vibe coded with Claude Code
-    </div>
+    <!-- Top Bar with TA:// branding in exact position as terenceang.com -->
+    <header class="top-bar">
+      <div class="top-bar-inner">
+        <div class="brand">
+          <a href="https://terenceang.com" class="logo" aria-label="Terence Ang Home" target="_blank" rel="noopener">
+            TA<span class="logo-sep">://</span><span class="brand-tag">SPECTRUM</span>
+          </a>
+          <div class="spectrum-ribbon" title="Sinclair ZX Spectrum Ribbon">
+            <span class="c-red"></span>
+            <span class="c-yellow"></span>
+            <span class="c-green"></span>
+            <span class="c-blue"></span>
+          </div>
+        </div>
+
+        <!-- MCP Bridge Indicator -->
+        <div id="mcp-indicator" title="MCP agent bridge connection (ws://localhost:3005)">
+          <span class="dot"></span>
+          <span id="mcp-indicator-text">MCP: offline</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="app-container">
+      <!-- Title Header -->
+      <section class="app-header">
+        <div class="hero-glow" aria-hidden="true"></div>
+        <h1 class="app-title">
+          Sinclair ZX Spectrum<span class="cursor-blink" aria-hidden="true">█</span>
+        </h1>
+        <p class="app-subtitle">
+          48K / 128K browser emulator in TypeScript &amp; Web Workers · Zero-latency AudioWorklet · MCP bridge
+        </p>
+      </section>
+
+      <!-- Emulator Frame & Controls -->
+      <div class="emulator-panel">
+        <!-- Controls Bar -->
+        <div id="controls" class="controls-bar">
+          <div class="control-group">
+            <label class="control-label" for="model-select">Model:</label>
+            <select id="model-select" class="control-select">
+              <option value="48k" selected>48K</option>
+              <option value="128k">128K</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label class="control-file-btn" for="rom-input">
+              <span>ROM:</span>
+              <span class="file-text" id="rom-file-text">Choose ROM…</span>
+              <input id="rom-input" type="file" accept=".rom,.bin" multiple />
+            </label>
+          </div>
+
+          <div class="control-group">
+            <label class="control-file-btn" for="snapshot-input">
+              <span>Media:</span>
+              <span class="file-text" id="media-file-text">Tape/Snapshot…</span>
+              <input id="snapshot-input" type="file" accept=".sna,.z80,.tap,.tzx" />
+            </label>
+          </div>
+
+          <label
+            class="control-checkbox"
+            title='Types PC punctuation directly, e.g. " sends SYMBOL SHIFT+P for you'
+          >
+            <input id="normal-keyboard-toggle" type="checkbox" checked />
+            <span>Normal keyboard</span>
+          </label>
+
+          <div class="action-buttons">
+            <button id="pause-btn" class="btn" type="button">Pause</button>
+            <button id="reset-btn" class="btn" type="button">Reset</button>
+            <button id="tape-btn" class="btn btn-accent" type="button">Play Tape</button>
+          </div>
+        </div>
+
+        <!-- Canvas Screen Frame -->
+        <div class="screen-frame">
+          <canvas id="screen" width="320" height="296" aria-label="ZX Spectrum Screen Output"></canvas>
+        </div>
+
+        <!-- Terminal Status Console -->
+        <div class="status-console" role="status" aria-live="polite">
+          <span class="status-prompt">SPECTRUM://&gt;</span>
+          <div id="status">Load a 48K ROM to begin.</div>
+        </div>
+      </div>
+
+      <!-- Clean Standalone Footer -->
+      <footer class="app-footer">
+        <div>v0.2.0 · Terence Ang (<a href="https://terenceang.com" target="_blank" rel="noopener">motionfxdesign</a>)</div>
+      </footer>
+    </main>
+
+    <!-- Main Module Script -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

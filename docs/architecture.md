@@ -148,7 +148,7 @@ than reimplementing the lock-free read logic.
 
 The app never bundles Sinclair/Amstrad ROM images. Users supply their own ROM file
 via the file picker on first run; it's cached in IndexedDB (`packages/app/src/ui/
-romStore.ts`) so the prompt only happens once per browser.
+sessionStore.ts`) so the prompt only happens once per browser.
 
 ## Deployment (Proxmox LXC)
 

@@ -8,14 +8,23 @@ import type { MachineModel } from "../../worker/src/protocol.js";
 import { AudioSink } from "./audio/audioSink.js";
 import { CAPS_SHIFT, KEY_MAP, SYMBOL_CHAR_MAP, SYMBOL_SHIFT } from "./input/keyMapping.js";
 import { Display } from "./ui/display.js";
-import { loadRom as loadCachedRom, saveRom } from "./ui/romStore.js";
+import {
+  loadLastModel,
+  loadSessionMedia,
+  loadSessionRom,
+  saveLastModel,
+  saveSessionMedia,
+  saveSessionRom,
+} from "./ui/sessionStore.js";
 import { EmulatorClient } from "./worker-client.js";
 
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
 const normalKeyboardToggle = document.getElementById("normal-keyboard-toggle") as HTMLInputElement;
 const romInput = document.getElementById("rom-input") as HTMLInputElement;
+const romFileText = document.getElementById("rom-file-text") as HTMLSpanElement | null;
 const snapshotInput = document.getElementById("snapshot-input") as HTMLInputElement;
+const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElement | null;
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
 const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement;
 const tapeBtn = document.getElementById("tape-btn") as HTMLButtonElement;
@@ -37,6 +46,7 @@ function currentModel(): MachineModel {
 client.onError = (message) => {
   status.textContent = `Error: ${message}`;
 };
+
 client.onTapeStatus = (playing) => {
   tapePlaying = playing;
   tapeBtn.textContent = playing ? "Stop Tape" : "Play Tape";
@@ -49,18 +59,100 @@ async function ensureAudioStarted(): Promise<void> {
   await audio.start(client);
 }
 
-async function tryLoadCachedRom(): Promise<void> {
+function updateModelPrompt(): void {
+  romLoaded = false;
+  romInput.value = "";
   const model = currentModel();
-  const cached = await loadCachedRom(model);
-  if (cached) {
-    client.loadRom(model, cached.slice(0)); // slice: loadRom transfers its argument
-    romLoaded = true;
-    status.textContent = "ROM loaded from cache. Load a .sna/.z80/.tap/.tzx file to play.";
-  } else {
-    romLoaded = false;
-    const hint = model === "48k" ? "a 48K ROM file" : "both 128K ROM files (128-0.rom, 128-1.rom)";
-    status.textContent = `Load ${hint} to begin (never bundled — see README).`;
+  if (romFileText) romFileText.textContent = "Choose ROM…";
+  if (mediaFileText) mediaFileText.textContent = "Tape/Snapshot…";
+  const hint = model === "48k" ? "a 48K ROM file" : "both 128K ROM files (128-0.rom, 128-1.rom)";
+  status.textContent = `Load ${hint} to begin.`;
+}
+
+async function restoreSession(): Promise<void> {
+  const lastModel = await loadLastModel();
+  if (lastModel && (lastModel === "48k" || lastModel === "128k")) {
+    modelSelect.value = lastModel;
   }
+  const model = currentModel();
+  const storedRom = await loadSessionRom(model);
+
+  if (storedRom) {
+    client.loadRom(model, storedRom.data.slice(0));
+    client.reset();
+    client.resume();
+    romLoaded = true;
+    if (romFileText) romFileText.textContent = storedRom.filename;
+
+    const storedMedia = await loadSessionMedia();
+    if (storedMedia) {
+      if (storedMedia.format === "sna" || storedMedia.format === "z80") {
+        client.loadSnapshot(storedMedia.format, storedMedia.data.slice(0));
+      } else {
+        client.loadTape(storedMedia.format, storedMedia.data.slice(0));
+      }
+      if (mediaFileText) mediaFileText.textContent = storedMedia.filename;
+      status.textContent = `${model.toUpperCase()} ROM restored (${storedRom.filename}). Loaded "${storedMedia.filename}". Ready.`;
+    } else {
+      status.textContent = `${model.toUpperCase()} ROM restored (${storedRom.filename}). Load a snapshot or tape to play.`;
+    }
+    await ensureAudioStarted();
+  } else {
+    updateModelPrompt();
+  }
+}
+
+async function loadRomFiles(files: File[]): Promise<void> {
+  if (files.length === 0) return;
+  const model = currentModel();
+
+  if (romLoaded) {
+    const ok = window.confirm("A ROM is already loaded. Replace it and reset the emulator?");
+    if (!ok) {
+      romInput.value = "";
+      return;
+    }
+  }
+
+  let data: ArrayBuffer;
+  let filename = "";
+
+  if (model === "48k") {
+    if (files.length !== 1) {
+      status.textContent = "48K needs exactly one ROM file.";
+      romInput.value = "";
+      return;
+    }
+    data = await files[0]!.arrayBuffer();
+    filename = files[0]!.name;
+    if (romFileText) romFileText.textContent = filename;
+  } else {
+    if (files.length !== 2) {
+      status.textContent = "128K needs exactly two ROM files (128-0.rom, 128-1.rom).";
+      romInput.value = "";
+      return;
+    }
+    const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
+    const [rom0, rom1] = await Promise.all(sorted.map((f) => f.arrayBuffer()));
+    const combined = new Uint8Array(rom0!.byteLength + rom1!.byteLength);
+    combined.set(new Uint8Array(rom0!), 0);
+    combined.set(new Uint8Array(rom1!), rom0!.byteLength);
+    data = combined.buffer;
+    filename = sorted.map((f) => f.name).join(", ");
+    if (romFileText) romFileText.textContent = filename;
+  }
+
+  await saveSessionRom({ model, filename, data: data.slice(0) });
+  await saveLastModel(model);
+
+  client.loadRom(model, data);
+  client.reset();
+  client.resume();
+  romLoaded = true;
+  paused = false;
+  pauseBtn.textContent = "Pause";
+  status.textContent = `${model.toUpperCase()} ROM loaded and reset. Load a snapshot or tape to play.`;
+  await ensureAudioStarted();
 }
 
 async function loadMediaFile(file: File): Promise<void> {
@@ -75,15 +167,21 @@ async function loadMediaFile(file: File): Promise<void> {
   const tapeExt = Object.keys(TAPE_EXTENSIONS).find((ext) => name.endsWith(ext));
 
   if (snapshotExt) {
-    client.loadSnapshot(SNAPSHOT_EXTENSIONS[snapshotExt as keyof typeof SNAPSHOT_EXTENSIONS], data);
+    const format = SNAPSHOT_EXTENSIONS[snapshotExt as keyof typeof SNAPSHOT_EXTENSIONS];
+    client.loadSnapshot(format, data);
+    if (mediaFileText) mediaFileText.textContent = file.name;
+    await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
   } else if (tapeExt) {
-    client.loadTape(TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS], data);
+    const format = TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS];
+    client.loadTape(format, data);
+    if (mediaFileText) mediaFileText.textContent = file.name;
+    await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
   } else {
     status.textContent = `Unrecognized file type: "${file.name}" (expected .sna/.z80/.tap/.tzx)`;
     return;
   }
 
-  status.textContent = `Loaded "${file.name}".`;
+  status.textContent = `Loaded "${file.name}". Ready.`;
   paused = false;
   pauseBtn.textContent = "Pause";
   await ensureAudioStarted();
@@ -91,41 +189,24 @@ async function loadMediaFile(file: File): Promise<void> {
 
 romInput.addEventListener("change", async () => {
   const files = Array.from(romInput.files ?? []);
-  if (files.length === 0) return;
-  const model = currentModel();
-
-  let data: ArrayBuffer;
-  if (model === "48k") {
-    if (files.length !== 1) {
-      status.textContent = "48K needs exactly one ROM file.";
-      return;
-    }
-    data = await files[0]!.arrayBuffer();
-  } else {
-    if (files.length !== 2) {
-      status.textContent = "128K needs exactly two ROM files (128-0.rom, 128-1.rom).";
-      return;
-    }
-    // Sorted by filename so "128-0.rom"/"128-1.rom" land in the right order regardless
-    // of selection order — ROM 0 (128 editor) must come before ROM 1 (48 BASIC).
-    const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
-    const [rom0, rom1] = await Promise.all(sorted.map((f) => f.arrayBuffer()));
-    const combined = new Uint8Array(rom0!.byteLength + rom1!.byteLength);
-    combined.set(new Uint8Array(rom0!), 0);
-    combined.set(new Uint8Array(rom1!), rom0!.byteLength);
-    data = combined.buffer;
-  }
-
-  await saveRom(model, data.slice(0));
-  client.loadRom(model, data);
-  romLoaded = true;
-  status.textContent = `${model.toUpperCase()} ROM loaded.`;
-  await ensureAudioStarted();
+  await loadRomFiles(files);
 });
 
-modelSelect.addEventListener("change", () => {
-  romLoaded = false;
-  void tryLoadCachedRom();
+modelSelect.addEventListener("change", async () => {
+  const model = currentModel();
+  await saveLastModel(model);
+  const storedRom = await loadSessionRom(model);
+  if (storedRom) {
+    client.loadRom(model, storedRom.data.slice(0));
+    client.reset();
+    client.resume();
+    romLoaded = true;
+    if (romFileText) romFileText.textContent = storedRom.filename;
+    status.textContent = `${model.toUpperCase()} ROM loaded from cache (${storedRom.filename}).`;
+    await ensureAudioStarted();
+  } else {
+    updateModelPrompt();
+  }
 });
 
 snapshotInput.addEventListener("change", async () => {
@@ -136,8 +217,17 @@ snapshotInput.addEventListener("change", async () => {
 document.body.addEventListener("dragover", (e) => e.preventDefault());
 document.body.addEventListener("drop", async (e) => {
   e.preventDefault();
-  const file = e.dataTransfer?.files?.[0];
-  if (file) await loadMediaFile(file);
+  const files = e.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+
+  const first = files[0]!;
+  const name = first.name.toLowerCase();
+
+  if (name.endsWith(".rom") || name.endsWith(".bin")) {
+    await loadRomFiles(Array.from(files));
+  } else {
+    await loadMediaFile(first);
+  }
 });
 
 pauseBtn.addEventListener("click", () => {
@@ -155,19 +245,15 @@ pauseBtn.addEventListener("click", () => {
 
 resetBtn.addEventListener("click", () => {
   client.reset();
+  status.textContent = "System reset.";
 });
 
-// Play restarts from the beginning of the loaded tape (TapeEdgePlayer.start()
-// always rewinds) — stop just pauses playback at the current pulse.
 tapeBtn.addEventListener("click", () => {
   if (tapePlaying) client.stopTape();
   else client.playTape();
 });
 
-// "Normal keyboard" mode: which PC key (by e.code) is currently driving a
-// SYMBOL SHIFT combo, so keyup can release the same matrix key regardless of
-// what e.key reports by then (irrelevant here, but keeps the two handlers
-// symmetric and avoids relying on key-repeat quirks).
+// PC keyboard -> Matrix mapping
 const activeSymbolKeys = new Map<string, { row: number; bit: number }>();
 
 window.addEventListener("keydown", (e) => {
@@ -175,10 +261,6 @@ window.addEventListener("keydown", (e) => {
     const target = SYMBOL_CHAR_MAP[e.key];
     if (target) {
       e.preventDefault();
-      // The PC Shift that produced this character (e.g. Shift+2 -> "@") already
-      // sent CAPS SHIFT down via its own keydown event — cancel it so the
-      // Spectrum sees plain SYMBOL SHIFT+key, not CAPS+SYMBOL SHIFT+key (which
-      // means something else entirely, extended-mode keyword entry).
       client.sendKey(CAPS_SHIFT.row, CAPS_SHIFT.bit, false);
       client.sendKey(SYMBOL_SHIFT.row, SYMBOL_SHIFT.bit, true);
       client.sendKey(target.row, target.bit, true);
@@ -191,6 +273,7 @@ window.addEventListener("keydown", (e) => {
   e.preventDefault();
   for (const { row, bit } of matrixKeys) client.sendKey(row, bit, true);
 });
+
 window.addEventListener("keyup", (e) => {
   const activeSymbol = activeSymbolKeys.get(e.code);
   if (activeSymbol) {
@@ -217,10 +300,9 @@ client.onReady = () => {
   requestAnimationFrame(frameLoop);
 };
 
-void tryLoadCachedRom();
+void restoreSession();
 
-// MCP bridge: lets the zx-spectrum MCP server (packages/mcp-server) drive this
-// tab directly instead of its own private headless machine.
+// MCP bridge
 const mcpInstanceId = Math.random().toString(36).slice(2, 8);
 
 const mcpIndicator = document.getElementById("mcp-indicator") as HTMLDivElement;
@@ -246,6 +328,8 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
       return { pngBase64: canvas.toDataURL("image/png").split(",")[1] };
     case "loadRom":
       client.loadRom(message.model, base64ToArrayBuffer(message.romBase64));
+      client.reset();
+      client.resume();
       romLoaded = true;
       return null;
     case "loadSnapshot":
@@ -276,13 +360,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Types a string via short, precisely-timed key taps, same matrix keys a physical
- * keyboard would send (see KEY_MAP/SYMBOL_CHAR_MAP above) — letters trigger a keyword
- * or a literal letter depending on the ROM's current cursor mode, exactly as on real
- * hardware. Driven entirely by this function's own setTimeout calls rather than
- * separate MCP round-trips, so the ROM's key-repeat never gets a multi-second-real-time
- * window to fire (the bug this replaces: press_key down/up from an LLM caller are
- * separate tool calls with unpredictable real-time gaps between them). */
 async function typeText(text: string): Promise<void> {
   for (const ch of text) {
     const code =
