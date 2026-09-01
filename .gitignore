@@ -10,3 +10,9 @@ Thumbs.db
 # supply their own ROM dumps at runtime; the app is not allowed to redistribute
 # Sinclair/Amstrad copyrighted ROM images).
 /rom/
+
+# Local test tapes — same copyright reasoning as /rom/ above.
+/Tapes/
+
+# Debug screenshots from the zx-spectrum MCP server's read_screen tool.
+screenshot.png

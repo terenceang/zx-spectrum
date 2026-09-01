@@ -36,7 +36,11 @@ export function parseTap(bytes: Uint8Array): TapePulseSequence {
       usedBitsInLastByte: 8,
     });
     pulses.push({ level: 0, duration: DEFAULT_PAUSE_TSTATES });
-    level = 0;
+    // The next block's pilot tone must start with a real edge out of the pause
+    // (matching the file's own initial level=1) — leaving level at 0 here would
+    // push the next pilot pulse at the same level as the pause, merging them into
+    // one flat segment and silently dropping the pilot tone's first transition.
+    level = 1;
   }
 
   return pulses;

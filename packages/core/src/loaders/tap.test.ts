@@ -38,4 +38,23 @@ describe("parseTap", () => {
   it("returns an empty sequence for an empty file", () => {
     expect(parseTap(new Uint8Array(0))).toEqual([]);
   });
+
+  it("keeps every pulse a real edge across a multi-block pause boundary", () => {
+    // Two blocks back-to-back: the pause after block 1 must not merge into block
+    // 2's first pilot pulse (both at level 0 would silently drop the pilot tone's
+    // first transition) — this is exactly the bug that broke every block after the
+    // first in real multi-block .tap files while single-block files looked fine.
+    function block(data: number[]): number[] {
+      const bytes = Uint8Array.from(data);
+      return [bytes.length & 0xff, (bytes.length >> 8) & 0xff, ...bytes];
+    }
+    const bytes = Uint8Array.from([...block([0x00, 0x01]), ...block([0xff, 0x02])]);
+
+    const pulses = parseTap(bytes);
+    for (let i = 1; i < pulses.length; i++) {
+      expect(pulses[i]!.level, `pulses[${i}] repeats the level of pulses[${i - 1}]`).not.toBe(
+        pulses[i - 1]!.level,
+      );
+    }
+  });
 });

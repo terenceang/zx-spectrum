@@ -1,12 +1,27 @@
-import { Machine48k, applySnapshotTo48k, parseSna, parseTap, parseTzx, parseZ80 } from "@zx-spectrum/core";
+import {
+  Machine48k,
+  Machine128k,
+  applySnapshotTo48k,
+  applySnapshotTo128k,
+  parseSna,
+  parseTap,
+  parseTzx,
+  parseZ80,
+} from "@zx-spectrum/core";
 import { AudioRing, FrameRingWriter } from "./ring-buffers.js";
-import type { HostToWorkerMessage, WorkerToHostMessage } from "./protocol.js";
+import type { HostToWorkerMessage, MachineModel, WorkerToHostMessage } from "./protocol.js";
 
 const FRAME_INTERVAL_MS = 1000 / 50;
 const SAMPLE_RATE = 44100;
 const SAMPLES_PER_FRAME = Math.round(SAMPLE_RATE / 50);
 
-const machine = new Machine48k();
+const machine48k = new Machine48k();
+const machine128k = new Machine128k();
+let model: MachineModel = "48k";
+
+function currentMachine(): Machine48k | Machine128k {
+  return model === "48k" ? machine48k : machine128k;
+}
 
 let frameWriter: FrameRingWriter | null = null;
 let audioRing: AudioRing | null = null;
@@ -21,9 +36,13 @@ function post(message: WorkerToHostMessage, transfer?: Transferable[]): void {
 
 function tick(): void {
   try {
+    const machine = currentMachine();
     machine.runFrame();
     const { pixels, width, height } = machine.getFrameBuffer();
-    const audio = machine.getAudioSamples(SAMPLES_PER_FRAME);
+    const audio =
+      model === "48k"
+        ? machine48k.getAudioSamples(SAMPLES_PER_FRAME)
+        : machine128k.getAudioSamples(SAMPLES_PER_FRAME, SAMPLE_RATE);
 
     const playing = machine.tape.isPlaying();
     if (playing !== lastTapePlaying) {
@@ -77,19 +96,27 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       break;
     }
     case "loadRom": {
-      machine.loadRom(new Uint8Array(message.rom));
+      model = message.model;
+      const bytes = new Uint8Array(message.rom);
+      if (message.model === "48k") {
+        machine48k.loadRom(bytes);
+      } else {
+        machine128k.loadRoms(bytes.subarray(0, 0x4000), bytes.subarray(0x4000, 0x8000));
+      }
       break;
     }
     case "loadSnapshot": {
       const bytes = new Uint8Array(message.data);
       const snapshot = message.format === "sna" ? parseSna(bytes) : parseZ80(bytes);
-      applySnapshotTo48k(machine, snapshot);
+      if (model === "48k") applySnapshotTo48k(machine48k, snapshot);
+      else applySnapshotTo128k(machine128k, snapshot);
       start();
       break;
     }
     case "loadTape": {
       const bytes = new Uint8Array(message.data);
       const pulses = message.format === "tap" ? parseTap(bytes) : parseTzx(bytes);
+      const machine = currentMachine();
       machine.loadTape(pulses);
       machine.playTape();
       lastTapePlaying = machine.tape.isPlaying();
@@ -98,15 +125,15 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       break;
     }
     case "playTape": {
-      machine.playTape();
+      currentMachine().playTape();
       break;
     }
     case "stopTape": {
-      machine.stopTape();
+      currentMachine().stopTape();
       break;
     }
     case "keyEvent": {
-      machine.keyboard.setKey(message.row, message.bit, message.down);
+      currentMachine().keyboard.setKey(message.row, message.bit, message.down);
       break;
     }
     case "pause": {
@@ -118,7 +145,7 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       break;
     }
     case "reset": {
-      machine.reset();
+      currentMachine().reset();
       break;
     }
   }

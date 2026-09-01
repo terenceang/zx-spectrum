@@ -46,19 +46,58 @@ available that the pulse timings (pilot/sync/bit0/bit1 durations) are correct,
 since it's real 1982 machine code doing the verification, not our own logic
 checking itself.
 
+**Bug found and fixed (2026-09-01)**: that single-block verification passed but
+missed a real bug, because it never exercised a *multi*-block file. Testing
+against a real commercial `.tap` (3 header/data pairs) showed the header always
+loaded but every following block failed with "R Tape loading error" on real
+hardware ROM code — `parseTap`/`parseTzx` set the pulse level to match the
+just-emitted pause (0) before starting the next block's pilot tone, so the pilot
+tone's first pulse was also level 0: two adjacent same-level pulses with no edge
+between them, silently dropping the pilot tone's first transition. Fixed by
+starting every block after a pause at level 1 (a real edge out of the pause),
+matching the file's own initial level. Re-verified the same real 3-block file
+end-to-end via direct `LD-BYTES` calls: all 6 blocks (including a 40001-byte
+block) now decode with zero byte errors. Regression-tested in `tap.test.ts`/
+`tzx.test.ts` via a general invariant (no two adjacent pulses share a level)
+built from a synthetic 2-block file, so this class of bug can't reappear
+undetected.
+
 **Demo**: load a `.tap`/`.tzx` through the Spectrum's own ROM loader and watch it
 load with real loading stripes/sound.
 
-## Phase 3 — 128K/+2 support
+## Phase 3 — 128K/+2 support (done)
 
-- [ ] `Memory128k` (banked, shared `BankedMemoryCore` with +3)
-- [ ] `Ula128k` timing profile (70908 T-states/frame)
-- [ ] `AyChip` (AY-3-8912, 3 tone + noise + envelope generators)
-- [ ] `Machine128k`, model selector UI
-- [ ] Extend `.z80`/`.sna` loaders' already-parsed 128K bank data into
-      `Machine128k` (the loaders already parse this — see `banks`/`pagedBanks` in
-      `ParsedZ80Snapshot`/`ParsedSnaSnapshot`)
-- [ ] Save-state format extended for banked memory + AY registers
+- [x] `Memory128k` — 8 banked 16K RAM banks + 2 paged 16K ROMs behind port 0x7FFD
+      (RAM bank, screen bank 5/7, ROM bank, paging lock). Contention follows the
+      *bank* (odd banks 1/3/5/7), not the address slot, matching real hardware.
+- [x] `ULA_128K_PROFILE` timing profile (228 T-states/line x 311 lines = 70908/frame,
+      36 T-state interrupt, same visible border geometry as 48K)
+- [x] `UlaEngine.renderFrame` generalized from a concrete `Memory48k` param to a
+      structural `ScreenSource` interface, so it works unchanged against either
+      memory model's `screenBytes`
+- [x] `AyChip` (AY-3-8912): 3 tone generators + shared noise (17-bit LFSR) +
+      envelope generator (all 10 canonical CONT/ALT/HOLD/ATT shapes), driven by its
+      own fractional-accumulator clock (1773400 Hz) so pitch is correct regardless
+      of frame/sample-rate boundaries — not reset per frame like the beeper, since
+      it's a free-running oscillator. Verified by unit test: measured zero-crossing
+      frequency of a generated tone matches the datasheet formula
+      (`clock / (16 x period)`) to within 5%.
+- [x] `Machine128k`: same Z80/ULA/tape composition as `Machine48k`, plus port
+      0x7FFD paging and partially-decoded AY ports (0xFFFD select/read, 0xBFFD
+      data write) mixed 50/50 with the beeper in `getAudioSamples`
+- [x] `applySnapshotTo128k` — pushes `.z80`/`.sna` 128K snapshots' already-parsed
+      `banks`/`pagedBanks` (see `ParsedZ80Snapshot`/`ParsedSnaSnapshot`) directly
+      into the right physical RAM bank, bypassing paging, plus AY register state
+      via `ayRegisters`
+- [x] App: model selector (48K/128K), ROM input accepts either one 48K ROM or two
+      128K ROMs (sorted by filename -> ROM0/ROM1), cached in IndexedDB per model
+- [x] Verified end-to-end against the real `128-0.rom`/`128-1.rom` images: boots
+      120 frames without hanging, PC lands mid-ROM (not spinning at reset), and the
+      display attribute bytes show a sensible white-paper/black-ink text screen
+- [ ] Interactive in-browser verification — same blocker as Phase 1 (see
+      "Outstanding from this session" below)
+- Save-state format: skipped — no save-state feature exists yet for 48K either, so
+  there's nothing to extend. Revisit if/when save-states are added for any model.
 
 **Demo**: switch to 128K model, load a 128K game/tune, hear AY music alongside
 beeper effects.

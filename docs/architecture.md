@@ -16,6 +16,9 @@ npm workspaces monorepo, TypeScript project references enforcing module boundari
   mapping, ROM/snapshot file loading, Web Audio playback.
 - `packages/test-fixtures` — test-only binary assets (zexdoc.com/zexall.com CPU
   exerciser binaries).
+- `packages/mcp-server` — headless MCP server exposing a `Machine48k`/`Machine128k`
+  as MCP tools (load ROM/snapshot/tape, press keys, run frames, read the screen as
+  a PNG) so an MCP client can drive and inspect the emulator without a browser.
 
 ## Z80 CPU core (`packages/core/src/cpu/`)
 
@@ -85,6 +88,50 @@ owning tape state itself.
 No fast-load trap — accurate pulse-timing playback is the only path. Verified
 against the real 48K ROM's `LD-BYTES` routine, not just our own parser (see
 `docs/roadmap.md`).
+
+## 128K/+2 (`packages/core/src/memory/memory128k.ts`, `audio/ayChip.ts`,
+`machines/machine128k.ts`)
+
+`Memory128k` contends by physical bank (odd banks 1/3/5/7), not by address slot —
+the ULA's video-fetch contention follows whichever RAM chip is actually being
+accessed, so a contended bank stays contended no matter which 16K slot it's
+currently paged into. `UlaEngine.renderFrame` was generalized from a concrete
+`Memory48k` parameter to a structural `ScreenSource` interface (`{ screenBytes:
+Uint8Array }`) so the same renderer works against `Memory128k`'s bank-5/bank-7
+screen selection unchanged.
+
+`AyChip` is a free-running oscillator, not frame-scoped like `Beeper` — its tone/
+noise/envelope counters advance via a fractional clock accumulator
+(`AY_CLOCK_HZ` / host sample rate) so pitch stays correct across frame boundaries
+without drift. `Machine128k.getAudioSamples` mixes it 50/50 with the beeper.
+
+## MCP server (`packages/mcp-server`)
+
+A thin headless wrapper: one live `Machine48k`/`Machine128k` instance, no worker or
+`SharedArrayBuffer` transport (a tool call and its reply are already a natural
+request/reply boundary, so the seqlock/ring-buffer machinery the browser needs for
+tear-free 60fps rendering doesn't apply here). `load_rom` replaces the machine
+outright rather than keeping both models alive simultaneously the way the app's
+worker does for live in-browser switching.
+
+Imports core via a relative path to its compiled `dist/` output
+(`../../core/dist/index.js`), not the `@zx-spectrum/core` package name — that name
+resolves to core's raw `.ts` source (via `package.json` "main"), which Vite
+transforms on the fly for the app/worker but plain Node can't execute directly.
+Composite TS project references mean `tsc -b` here already builds core first.
+Mirrors the same relative-import pattern `packages/app/src/worker-client.ts` uses
+for the worker package, for the same underlying reason.
+
+`read_screen` returns a PNG. Node's `zlib` supplies the DEFLATE compression PNG
+needs; CRC32 isn't in `zlib`'s API, so `png.ts` hand-rolls the standard table-driven
+algorithm rather than adding a PNG library for what's otherwise a ~100-line encoder.
+
+The key-matrix data `press_key`/`get_status` need (`SPECTRUM_KEY_MATRIX`,
+`SYMBOL_SHIFT_CHARS`) lives in `packages/core/src/io/spectrumKeys.ts` — it's a fact
+about the machine's hardware, not about any particular input device, so unlike
+`packages/app/src/input/keyMapping.ts` (which translates *browser* `KeyboardEvent`
+codes to these same coordinates, a genuinely device-specific concern) it belongs in
+core and both packages import the one copy.
 
 ## ROM sourcing
 

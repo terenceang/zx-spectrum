@@ -1,7 +1,9 @@
-export type MachineModel = "48k";
+export type MachineModel = "48k" | "128k";
 
 export type HostToWorkerMessage =
   | { type: "init"; frameBuffer: SharedArrayBuffer | null; audioBuffer: SharedArrayBuffer | null }
+  /** `rom` is a single 16384-byte image for "48k", or two 16384-byte ROMs
+   * concatenated (rom0 then rom1) into a 32768-byte buffer for "128k". */
   | { type: "loadRom"; model: MachineModel; rom: ArrayBuffer }
   | { type: "loadSnapshot"; format: "sna" | "z80"; data: ArrayBuffer }
   | { type: "loadTape"; format: "tap" | "tzx"; data: ArrayBuffer }

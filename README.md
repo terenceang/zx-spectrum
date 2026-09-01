@@ -42,3 +42,28 @@ Deploying behind nginx/Caddy? See the **Deployment** section of
 fast frame/audio transport) requires two response headers
 (`Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy`) the web server must
 send; without them the app still works, just slower.
+
+## MCP server
+
+`packages/mcp-server` exposes the emulator as MCP tools (load ROM/snapshot/tape,
+press keys, run frames, read the screen as a PNG) so an MCP client can drive it
+headlessly. Build it (`npm run build --workspace=@zx-spectrum/mcp-server`, or just
+`npm run build`), then point an MCP client at
+`node packages/mcp-server/dist/index.js` — already registered in `.mcp.json` for
+Claude Code in this repo.
+
+## Legal
+
+This project's own code is licensed under the [MIT License](LICENSE).
+
+It is an independent, unofficial emulator with no affiliation to or endorsement
+by Sky UK Limited or any other holder of the Sinclair/ZX Spectrum trademarks.
+It does not bundle or distribute any Sinclair/Amstrad ROM images or copyrighted
+game software — you must supply your own legally-obtained ROM/tape/snapshot
+files, and you're responsible for how you use them.
+
+## Author
+
+**Terence Ang** (motionfxdesign) — [terenceang.com](https://terenceang.com) — v0.1.0
+
+Vibe coded with [Claude Code](https://claude.com/claude-code).

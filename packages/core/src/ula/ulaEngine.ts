@@ -1,8 +1,14 @@
 import { Beeper } from "../audio/beeper.js";
 import type { KeyboardState } from "../io/keyboard.js";
-import type { Memory48k } from "../memory/memory48k.js";
 import { paletteIndex } from "./palette.js";
 import { CONTENTION_PATTERN, type UlaTimingProfile, tStatesPerFrame } from "./timingProfile.js";
+
+/** What renderFrame needs from memory: a view whose index 0 corresponds to address
+ * 0x4000 (the display file's base). Memory48k.screenBytes is the full 48K RAM;
+ * Memory128k.screenBytes is whichever bank (5 or 7) the ULA is currently reading. */
+export interface ScreenSource {
+  readonly screenBytes: Uint8Array;
+}
 
 /** Data-driven ULA engine shared across 48K/128K/+3 — see timingProfile.ts. Owns
  * border, beeper, contention, and (for now, Phase 1) end-of-frame bulk framebuffer
@@ -82,7 +88,7 @@ export class UlaEngine {
   /** Renders the full frame (border + 256x192 display) into a palette-indexed
    * (0-15) buffer, `width`x`height` where width/height come from the profile's
    * border geometry. */
-  renderFrame(memory: Memory48k): { pixels: Uint8Array; width: number; height: number } {
+  renderFrame(memory: ScreenSource): { pixels: Uint8Array; width: number; height: number } {
     const borderCols = this.profile.borderSideColumns * 8;
     const width = 256 + borderCols * 2;
     const height = 192 + this.profile.borderTopLines + this.profile.borderBottomLines;

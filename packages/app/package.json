@@ -2,7 +2,8 @@
   "name": "@zx-spectrum/app",
   "private": true,
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "author": "Terence Ang (motionfxdesign)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

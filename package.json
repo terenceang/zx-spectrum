@@ -1,13 +1,16 @@
 {
   "name": "zx-spectrum",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "author": "Terence Ang (motionfxdesign)",
+  "license": "MIT",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=@zx-spectrum/app",
-    "build": "npm run build --workspace=@zx-spectrum/core && npm run build --workspace=@zx-spectrum/worker && npm run build --workspace=@zx-spectrum/app",
+    "build": "npm run build --workspace=@zx-spectrum/core && npm run build --workspace=@zx-spectrum/worker && npm run build --workspace=@zx-spectrum/app && npm run build --workspace=@zx-spectrum/mcp-server",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cpu-exerciser": "vitest run packages/core/src/cpu/zexdoc.test.ts",

@@ -70,4 +70,24 @@ describe("parseTzx", () => {
     const bytes = Uint8Array.from([...tzxHeader(), 0x19]);
     expect(() => parseTzx(bytes)).toThrow(/0x19/);
   });
+
+  it("keeps every pulse a real edge across a multi-block pause boundary", () => {
+    // Same bug class as tap.test.ts's equivalent test: the pause after a Standard
+    // Speed Data block must not merge into the next block's first pilot pulse.
+    function speedDataBlock(data: number[]): number[] {
+      return [0x10, 0xe8, 0x03, data.length, 0x00, ...data]; // 1000ms pause
+    }
+    const bytes = Uint8Array.from([
+      ...tzxHeader(),
+      ...speedDataBlock([0x00, 0x01]),
+      ...speedDataBlock([0xff, 0x02]),
+    ]);
+
+    const pulses = parseTzx(bytes);
+    for (let i = 1; i < pulses.length; i++) {
+      expect(pulses[i]!.level, `pulses[${i}] repeats the level of pulses[${i - 1}]`).not.toBe(
+        pulses[i - 1]!.level,
+      );
+    }
+  });
 });

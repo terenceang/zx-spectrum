@@ -3,6 +3,7 @@ import {
   audioBufferByteLength,
   frameBufferByteLength,
   type HostToWorkerMessage,
+  type MachineModel,
   type WorkerToHostMessage,
 } from "../../worker/src/protocol.js";
 import { FrameRingReader } from "../../worker/src/ring-buffers.js";
@@ -70,7 +71,7 @@ export class EmulatorClient {
     else this.worker.postMessage(message);
   }
 
-  loadRom(model: "48k", rom: ArrayBuffer): void {
+  loadRom(model: MachineModel, rom: ArrayBuffer): void {
     this.send({ type: "loadRom", model, rom }, [rom]);
   }
 

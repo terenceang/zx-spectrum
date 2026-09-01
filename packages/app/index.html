@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>ZX Spectrum Emulator</title>
     <style>
       body {
@@ -31,18 +32,69 @@
         font-size: 0.85rem;
         color: #aaa;
       }
+      #mcp-indicator {
+        position: fixed;
+        top: 0.5rem;
+        right: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 999px;
+        background: #1a1a1a;
+        border: 1px solid #444;
+      }
+      #mcp-indicator .dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: #888;
+      }
+      #mcp-indicator.connected .dot {
+        background: #4caf50;
+      }
+      #attribution {
+        font-size: 0.7rem;
+        color: #666;
+      }
+      #attribution a {
+        color: #888;
+      }
     </style>
   </head>
   <body>
+    <div id="mcp-indicator" title="MCP bridge connection">
+      <span class="dot"></span>
+      <span id="mcp-indicator-text">MCP: offline</span>
+    </div>
     <h1>ZX Spectrum Emulator</h1>
     <div id="controls">
-      <label>ROM: <input id="rom-input" type="file" accept=".rom,.bin" /></label>
+      <label>
+        Model:
+        <select id="model-select">
+          <option value="48k">48K</option>
+          <option value="128k">128K</option>
+        </select>
+      </label>
+      <label>ROM: <input id="rom-input" type="file" accept=".rom,.bin" multiple /></label>
       <label>Snapshot/Tape: <input id="snapshot-input" type="file" accept=".sna,.z80,.tap,.tzx" /></label>
+      <label
+        title='Types PC punctuation directly, e.g. " sends SYMBOL SHIFT+P for you'
+      >
+        <input id="normal-keyboard-toggle" type="checkbox" />
+        Normal keyboard
+      </label>
       <button id="pause-btn">Pause</button>
       <button id="reset-btn">Reset</button>
+      <button id="tape-btn">Play Tape</button>
     </div>
     <canvas id="screen" width="352" height="296"></canvas>
     <div id="status">Load a 48K ROM to begin.</div>
+    <div id="attribution">
+      v0.1.0 &middot; Terence Ang (<a href="https://terenceang.com" target="_blank" rel="noopener">motionfxdesign</a>)
+      &middot; vibe coded with Claude Code
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

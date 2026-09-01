@@ -35,6 +35,20 @@ export const ULA_48K_PROFILE: UlaTimingProfile = {
   borderSideColumns: 4,
 };
 
+/** Same border geometry as the 48K (192 display lines, 48/56 border lines) — the
+ * 128K's extra scanline vs. the 48K's 312 lands in vertical retrace, not the
+ * visible border, so it doesn't change the rendered frame size. */
+export const ULA_128K_PROFILE: UlaTimingProfile = {
+  tStatesPerLine: 228,
+  linesPerFrame: 311,
+  firstContendedTstate: 14361,
+  contendedLines: 192,
+  interruptLength: 36,
+  borderTopLines: 48,
+  borderBottomLines: 56,
+  borderSideColumns: 4,
+};
+
 export function tStatesPerFrame(profile: UlaTimingProfile): number {
   return profile.tStatesPerLine * profile.linesPerFrame;
 }

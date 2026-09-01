@@ -55,7 +55,9 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         });
         if (pauseMs > 0) {
           pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS });
-          level = 0;
+          // See parseTap: the next segment must start with a real edge out of the
+          // pause, not another level-0 pulse merging into one flat segment.
+          level = 1;
         }
         break;
       }
@@ -83,7 +85,9 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         });
         if (pauseMs > 0) {
           pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS });
-          level = 0;
+          // See parseTap: the next segment must start with a real edge out of the
+          // pause, not another level-0 pulse merging into one flat segment.
+          level = 1;
         }
         break;
       }
@@ -129,7 +133,9 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         });
         if (pauseMs > 0) {
           pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS });
-          level = 0;
+          // See parseTap: the next segment must start with a real edge out of the
+          // pause, not another level-0 pulse merging into one flat segment.
+          level = 1;
         }
         break;
       }
@@ -140,7 +146,9 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         offset += 2;
         if (pauseMs > 0) {
           pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS });
-          level = 0;
+          // See parseTap: the next segment must start with a real edge out of the
+          // pause, not another level-0 pulse merging into one flat segment.
+          level = 1;
         }
         break;
       }

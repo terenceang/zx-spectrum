@@ -3,11 +3,10 @@
  * concern per the plan: core only knows about the raw matrix, translating a
  * specific input device's keys into matrix coordinates is a UI job and differs for
  * touch/gamepad inputs, which get their own mapping tables later. */
+import { CAPS_SHIFT, SYMBOL_SHIFT, SYMBOL_SHIFT_CHARS, type MatrixKey } from "@zx-spectrum/core";
 
-const CAPS_SHIFT = { row: 0, bit: 0 };
-const SYMBOL_SHIFT = { row: 7, bit: 1 };
-
-type MatrixKey = { row: number; bit: number };
+export { CAPS_SHIFT, SYMBOL_SHIFT };
+export type { MatrixKey };
 
 /** Most keys map to exactly one matrix position; arrow keys and a few punctuation
  * keys are CAPS-SHIFT/SYMBOL-SHIFT combos on real Spectrum keyboards and map to two. */
@@ -63,3 +62,12 @@ export const KEY_MAP: Record<string, MatrixKey[]> = {
   ArrowRight: [CAPS_SHIFT, { row: 4, bit: 2 }], // CAPS SHIFT + 8
   Backspace: [CAPS_SHIFT, { row: 4, bit: 0 }], // CAPS SHIFT + 0 (DELETE)
 };
+
+/** "Normal keyboard" mode: PC punctuation key -> the Spectrum key whose red
+ * SYMBOL SHIFT legend prints that character, so typing `"` sends SYMBOL SHIFT+P
+ * instead of requiring the player to know the Spectrum's symbol-shift layout.
+ * Keyed by `KeyboardEvent.key` (the produced character), not `.code`, since the
+ * same PC key can require a physical Shift the Spectrum side must not also see as
+ * CAPS SHIFT (handled in main.ts). The table itself is hardware fact, not
+ * browser-specific, so it lives in core — see SYMBOL_SHIFT_CHARS there. */
+export const SYMBOL_CHAR_MAP: Record<string, MatrixKey> = SYMBOL_SHIFT_CHARS;
