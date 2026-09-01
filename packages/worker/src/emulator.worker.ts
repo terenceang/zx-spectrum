@@ -1,4 +1,4 @@
-import { Machine48k, applySnapshotTo48k, parseSna, parseZ80 } from "@zx-spectrum/core";
+import { Machine48k, applySnapshotTo48k, parseSna, parseTap, parseTzx, parseZ80 } from "@zx-spectrum/core";
 import { AudioRing, FrameRingWriter } from "./ring-buffers.js";
 import type { HostToWorkerMessage, WorkerToHostMessage } from "./protocol.js";
 
@@ -12,6 +12,7 @@ let frameWriter: FrameRingWriter | null = null;
 let audioRing: AudioRing | null = null;
 let running = false;
 let timer: ReturnType<typeof setInterval> | null = null;
+let lastTapePlaying = false;
 
 function post(message: WorkerToHostMessage, transfer?: Transferable[]): void {
   // @ts-expect-error -- postMessage's overloads don't like a possibly-undefined transfer list
@@ -23,6 +24,12 @@ function tick(): void {
     machine.runFrame();
     const { pixels, width, height } = machine.getFrameBuffer();
     const audio = machine.getAudioSamples(SAMPLES_PER_FRAME);
+
+    const playing = machine.tape.isPlaying();
+    if (playing !== lastTapePlaying) {
+      lastTapePlaying = playing;
+      post({ type: "tapeStatus", playing });
+    }
 
     if (frameWriter && audioRing) {
       frameWriter.write(pixels, width, height);
@@ -78,6 +85,24 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       const snapshot = message.format === "sna" ? parseSna(bytes) : parseZ80(bytes);
       applySnapshotTo48k(machine, snapshot);
       start();
+      break;
+    }
+    case "loadTape": {
+      const bytes = new Uint8Array(message.data);
+      const pulses = message.format === "tap" ? parseTap(bytes) : parseTzx(bytes);
+      machine.loadTape(pulses);
+      machine.playTape();
+      lastTapePlaying = machine.tape.isPlaying();
+      post({ type: "tapeStatus", playing: lastTapePlaying });
+      start();
+      break;
+    }
+    case "playTape": {
+      machine.playTape();
+      break;
+    }
+    case "stopTape": {
+      machine.stopTape();
       break;
     }
     case "keyEvent": {

@@ -48,11 +48,14 @@ export class UlaEngine {
     this.beeper.setLevel(tState, (value >> 4) & 1 ? 1 : 0);
   }
 
-  /** Port 0xFE read: EAR (bit 6, tape input — wired up in Phase 2) and keyboard
-   * (bits 0-4), OR-combined across every row selected by a 0 bit in `addressHigh`. */
-  readPort(addressHigh: number): number {
+  /** Port 0xFE read: EAR (bit 6, tape input) and keyboard (bits 0-4), OR-combined
+   * across every row selected by a 0 bit in `addressHigh`. `earLevel` is supplied
+   * by the machine (from its TapeEdgePlayer) each call — the ULA doesn't own tape
+   * playback, it just reflects whatever level it's told. */
+  readPort(addressHigh: number, earLevel: 0 | 1 = 0): number {
     const keys = this.keyboard.readPort(addressHigh) & 0x1f;
-    return 0xe0 | keys; // bit 6 (EAR) low until tape playback is wired up; bits 5,7 float high
+    const earBit = earLevel ? 0x40 : 0;
+    return 0xa0 | earBit | keys; // bits 5,7 float high
   }
 
   /** Contention delay in T-states for a memory/port access landing on `tState`. */

@@ -71,6 +71,21 @@ Fallback path (no `SharedArrayBuffer`, i.e. cross-origin isolation isn't set up 
 see Deployment below): per-frame `postMessage` with `Transferable` `ArrayBuffer`s,
 selected automatically at `EmulatorClient` construction time.
 
+## Tape loading (`packages/core/src/loaders/tap.ts`, `tzx.ts`, `tapePlayer.ts`)
+
+`.tap` blocks and the common `.tzx` block types (0x10-0x14 speed-data variants,
+0x20-0x22/0x30/0x32/0x33 pauses/metadata) both parse down to one
+`TapePulseSequence` (a flat list of `{level, duration}` edges). `TapeEdgePlayer`
+plays that sequence against the machine's `totalTStates` clock — a counter that,
+unlike the per-frame `tStates` used for contention/interrupt timing, never resets,
+since tape playback spans many frames. The ULA's port 0xFE read takes the current
+EAR level as a parameter (supplied by the machine from the tape player) rather than
+owning tape state itself.
+
+No fast-load trap — accurate pulse-timing playback is the only path. Verified
+against the real 48K ROM's `LD-BYTES` routine, not just our own parser (see
+`docs/roadmap.md`).
+
 ## ROM sourcing
 
 The app never bundles Sinclair/Amstrad ROM images. Users supply their own ROM file

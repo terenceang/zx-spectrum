@@ -24,6 +24,9 @@ let romLoaded = false;
 client.onError = (message) => {
   status.textContent = `Error: ${message}`;
 };
+client.onTapeStatus = (playing) => {
+  status.textContent = playing ? "Tape playing…" : "Tape stopped.";
+};
 
 async function ensureAudioStarted(): Promise<void> {
   if (audioStarted) return;
@@ -36,10 +39,39 @@ async function tryLoadCachedRom(): Promise<void> {
   if (cached) {
     client.loadRom("48k", cached.slice(0)); // slice: loadRom transfers its argument
     romLoaded = true;
-    status.textContent = "ROM loaded from cache. Load a .sna/.z80 snapshot to play.";
+    status.textContent = "ROM loaded from cache. Load a .sna/.z80/.tap/.tzx file to play.";
   } else {
     status.textContent = "Load a 48K ROM file to begin (never bundled — see README).";
   }
+}
+
+const SNAPSHOT_EXTENSIONS = { ".sna": "sna", ".z80": "z80" } as const;
+const TAPE_EXTENSIONS = { ".tap": "tap", ".tzx": "tzx" } as const;
+
+async function loadMediaFile(file: File): Promise<void> {
+  if (!romLoaded) {
+    status.textContent = "Load a ROM first.";
+    return;
+  }
+  const name = file.name.toLowerCase();
+  const data = await file.arrayBuffer();
+
+  const snapshotExt = Object.keys(SNAPSHOT_EXTENSIONS).find((ext) => name.endsWith(ext));
+  const tapeExt = Object.keys(TAPE_EXTENSIONS).find((ext) => name.endsWith(ext));
+
+  if (snapshotExt) {
+    client.loadSnapshot(SNAPSHOT_EXTENSIONS[snapshotExt as keyof typeof SNAPSHOT_EXTENSIONS], data);
+  } else if (tapeExt) {
+    client.loadTape(TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS], data);
+  } else {
+    status.textContent = `Unrecognized file type: "${file.name}" (expected .sna/.z80/.tap/.tzx)`;
+    return;
+  }
+
+  status.textContent = `Loaded "${file.name}".`;
+  paused = false;
+  pauseBtn.textContent = "Pause";
+  await ensureAudioStarted();
 }
 
 romInput.addEventListener("change", async () => {
@@ -55,32 +87,14 @@ romInput.addEventListener("change", async () => {
 
 snapshotInput.addEventListener("change", async () => {
   const file = snapshotInput.files?.[0];
-  if (!file) return;
-  if (!romLoaded) {
-    status.textContent = "Load a ROM first.";
-    return;
-  }
-  const format = file.name.toLowerCase().endsWith(".z80") ? "z80" : "sna";
-  const data = await file.arrayBuffer();
-  client.loadSnapshot(format, data);
-  status.textContent = `Loaded "${file.name}".`;
-  paused = false;
-  pauseBtn.textContent = "Pause";
-  await ensureAudioStarted();
+  if (file) await loadMediaFile(file);
 });
 
 document.body.addEventListener("dragover", (e) => e.preventDefault());
 document.body.addEventListener("drop", async (e) => {
   e.preventDefault();
   const file = e.dataTransfer?.files?.[0];
-  if (!file || !romLoaded) return;
-  const format = file.name.toLowerCase().endsWith(".z80") ? "z80" : "sna";
-  const data = await file.arrayBuffer();
-  client.loadSnapshot(format, data);
-  status.textContent = `Loaded "${file.name}".`;
-  paused = false;
-  pauseBtn.textContent = "Pause";
-  await ensureAudioStarted();
+  if (file) await loadMediaFile(file);
 });
 
 pauseBtn.addEventListener("click", () => {

@@ -24,3 +24,7 @@ export type { ParsedSnaSnapshot } from "./loaders/sna.js";
 export { parseZ80 } from "./loaders/z80.js";
 export type { ParsedZ80Snapshot, Z80HardwareMode } from "./loaders/z80.js";
 export { applySnapshotTo48k } from "./loaders/apply.js";
+export { parseTap } from "./loaders/tap.js";
+export { parseTzx } from "./loaders/tzx.js";
+export type { TapePulse, TapePulseSequence } from "./loaders/tapePulse.js";
+export { TapeEdgePlayer } from "./loaders/tapePlayer.js";

@@ -29,6 +29,7 @@ export class EmulatorClient {
   private latestFallbackAudio: Float32Array | null = null;
   onReady?: () => void;
   onError?: (message: string) => void;
+  onTapeStatus?: (playing: boolean) => void;
 
   constructor() {
     this.worker = new Worker(new URL("../../worker/src/emulator.worker.ts", import.meta.url), {
@@ -50,6 +51,7 @@ export class EmulatorClient {
       const message = event.data;
       if (message.type === "ready") this.onReady?.();
       else if (message.type === "error") this.onError?.(message.message);
+      else if (message.type === "tapeStatus") this.onTapeStatus?.(message.playing);
       else if (message.type === "frame") {
         this.latestFallbackFrame = {
           pixels: new Uint8Array(message.pixels),
@@ -74,6 +76,18 @@ export class EmulatorClient {
 
   loadSnapshot(format: "sna" | "z80", data: ArrayBuffer): void {
     this.send({ type: "loadSnapshot", format, data }, [data]);
+  }
+
+  loadTape(format: "tap" | "tzx", data: ArrayBuffer): void {
+    this.send({ type: "loadTape", format, data }, [data]);
+  }
+
+  playTape(): void {
+    this.send({ type: "playTape" });
+  }
+
+  stopTape(): void {
+    this.send({ type: "stopTape" });
   }
 
   sendKey(row: number, bit: number, down: boolean): void {

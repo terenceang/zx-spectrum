@@ -4,6 +4,9 @@ export type HostToWorkerMessage =
   | { type: "init"; frameBuffer: SharedArrayBuffer | null; audioBuffer: SharedArrayBuffer | null }
   | { type: "loadRom"; model: MachineModel; rom: ArrayBuffer }
   | { type: "loadSnapshot"; format: "sna" | "z80"; data: ArrayBuffer }
+  | { type: "loadTape"; format: "tap" | "tzx"; data: ArrayBuffer }
+  | { type: "playTape" }
+  | { type: "stopTape" }
   | { type: "keyEvent"; row: number; bit: number; down: boolean }
   | { type: "pause" }
   | { type: "resume" }
@@ -12,6 +15,7 @@ export type HostToWorkerMessage =
 export type WorkerToHostMessage =
   | { type: "ready" }
   | { type: "frame"; pixels: ArrayBuffer; width: number; height: number; audio: ArrayBuffer }
+  | { type: "tapeStatus"; playing: boolean }
   | { type: "error"; message: string };
 
 /** Layout of the shared frame buffer: a small header (as Int32 words) — a seqlock

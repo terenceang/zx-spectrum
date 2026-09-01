@@ -1,6 +1,8 @@
 import type { MemoryAccessTag, Z80Bus } from "../cpu/bus.js";
 import { Z80 } from "../cpu/z80.js";
 import { KeyboardState } from "../io/keyboard.js";
+import { TapeEdgePlayer } from "../loaders/tapePlayer.js";
+import type { TapePulseSequence } from "../loaders/tapePulse.js";
 import { Memory48k } from "../memory/memory48k.js";
 import { ULA_48K_PROFILE, tStatesPerFrame } from "../ula/timingProfile.js";
 import { UlaEngine } from "../ula/ulaEngine.js";
@@ -15,8 +17,13 @@ export class Machine48k implements Z80Bus {
   readonly memory = new Memory48k();
   readonly keyboard = new KeyboardState();
   readonly ula = new UlaEngine(ULA_48K_PROFILE, this.keyboard);
+  readonly tape = new TapeEdgePlayer();
 
+  /** Resets every frame — used for contention/interrupt timing within a frame. */
   tStates = 0;
+  /** Never resets — tape playback timing spans many frames, so it needs a clock
+   * that doesn't restart each frame the way `tStates` does. */
+  totalTStates = 0;
   private readonly frameTStateBudget = tStatesPerFrame(ULA_48K_PROFILE);
 
   constructor() {
@@ -27,10 +34,23 @@ export class Machine48k implements Z80Bus {
     this.memory.loadRom(rom);
   }
 
+  loadTape(pulses: TapePulseSequence): void {
+    this.tape.load(pulses);
+  }
+
+  playTape(): void {
+    this.tape.start(this.totalTStates);
+  }
+
+  stopTape(): void {
+    this.tape.stop();
+  }
+
   reset(): void {
     this.cpu.reset();
     this.keyboard.reset();
     this.ula.reset();
+    this.tape.stop();
     this.tStates = 0;
   }
 
@@ -54,40 +74,47 @@ export class Machine48k implements Z80Bus {
 
   // ---- Z80Bus ---------------------------------------------------------------
 
+  private tick(count: number): void {
+    this.tStates += count;
+    this.totalTStates += count;
+  }
+
   private applyContentionIfNeeded(address: number): void {
     if (this.memory.isContended(address)) {
-      this.tStates += this.ula.contentionDelay(this.tStates);
+      this.tick(this.ula.contentionDelay(this.tStates));
     }
   }
 
   readMemory(address: number, tag: MemoryAccessTag): number {
     this.applyContentionIfNeeded(address);
-    this.tStates += tag === "opcode" || tag === "opcode-prefix" ? 4 : 3;
+    this.tick(tag === "opcode" || tag === "opcode-prefix" ? 4 : 3);
     return this.memory.read8(address);
   }
 
   writeMemory(address: number, value: number, _tag: MemoryAccessTag): void {
     this.applyContentionIfNeeded(address);
-    this.tStates += 3;
+    this.tick(3);
     this.memory.write8(address, value);
   }
 
   contend(address: number, count: number): void {
     this.applyContentionIfNeeded(address);
-    this.tStates += count;
+    this.tick(count);
   }
 
   readPort(port: number): number {
     const isUlaPort = (port & 0x01) === 0;
     if (isUlaPort) this.applyContentionIfNeeded(port);
-    this.tStates += 4;
-    return isUlaPort ? this.ula.readPort((port >> 8) & 0xff) : 0xff;
+    this.tick(4);
+    if (!isUlaPort) return 0xff;
+    const earLevel = this.tape.levelAt(this.totalTStates);
+    return this.ula.readPort((port >> 8) & 0xff, earLevel);
   }
 
   writePort(port: number, value: number): void {
     const isUlaPort = (port & 0x01) === 0;
     if (isUlaPort) this.applyContentionIfNeeded(port);
-    this.tStates += 4;
+    this.tick(4);
     if (isUlaPort) this.ula.writePort(this.tStates, value);
   }
 

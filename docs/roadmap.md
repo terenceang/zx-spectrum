@@ -22,13 +22,29 @@
 
 **Demo**: load a `.sna` of a real 48K game and play it with sound.
 
-## Phase 2 — Real tape loading
+## Phase 2 — Real tape loading (done)
 
-- [ ] `.tap`/`.tzx` parsers converging on a unified `TapePulseSequence`
-- [ ] `TapeEdgePlayer` feeding ULA EAR input (port 0xFE bit 6) at accurate pilot/
-      sync/bit timing
-- [ ] Tape browser/play/stop UI, loading-indicator
-- [ ] Optional fast-load trap (`Machine` setting, off by default)
+- [x] `.tap`/`.tzx` parsers converging on a unified `TapePulseSequence`
+      (`.tzx` covers the common speed-data/pause/metadata block IDs: 0x10-0x14,
+      0x20-0x22, 0x30, 0x32, 0x33 — rarer blocks throw a clear "unsupported"
+      error naming the block ID rather than silently misparsing)
+- [x] `TapeEdgePlayer` feeding ULA EAR input (port 0xFE bit 6) at accurate pilot/
+      sync/bit timing, driven off the machine's persistent (never-per-frame-reset)
+      T-state clock so playback stays in sync across many frames
+- [x] Play/stop wired through the worker protocol (`loadTape`/`playTape`/
+      `stopTape`) with a `tapeStatus` message back to the app
+- [x] App: `.tap`/`.tzx` accepted by the same file input/drag-drop as snapshots
+- [ ] Optional fast-load trap (`Machine` setting, off by default) — skipped for
+      now, add if load-time UX becomes a complaint; accurate playback is the
+      only path today
+
+**Verified against the real 48K ROM, not just our own parser**: hand-built a
+synthetic `.tap` data block, ran it through `parseTap` -> `TapeEdgePlayer`, and
+called the ROM's actual `LD-BYTES` routine (0x0556) against it — the ROM decoded
+the pulses and wrote back the exact expected bytes. This is the strongest evidence
+available that the pulse timings (pilot/sync/bit0/bit1 durations) are correct,
+since it's real 1982 machine code doing the verification, not our own logic
+checking itself.
 
 **Demo**: load a `.tap`/`.tzx` through the Spectrum's own ROM loader and watch it
 load with real loading stripes/sound.
