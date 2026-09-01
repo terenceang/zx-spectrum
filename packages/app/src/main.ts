@@ -29,6 +29,7 @@ const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElem
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
 const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement;
 const tapeBtn = document.getElementById("tape-btn") as HTMLButtonElement;
+const tapeEjectBtn = document.getElementById("tape-eject-btn") as HTMLButtonElement | null;
 const muteBtn = document.getElementById("mute-btn") as HTMLButtonElement | null;
 const volumeIcon = document.getElementById("volume-icon") as SVGElement | null;
 const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement | null;
@@ -120,9 +121,43 @@ client.onError = (message) => {
   status.textContent = `Error: ${message}`;
 };
 
+function updatePauseUi(): void {
+  const pauseIcon = pauseBtn.querySelector(".icon-pause") as SVGElement | null;
+  const playIcon = pauseBtn.querySelector(".icon-play") as SVGElement | null;
+  if (paused) {
+    if (pauseIcon) pauseIcon.style.display = "none";
+    if (playIcon) playIcon.style.display = "block";
+    pauseBtn.setAttribute("title", "Resume emulation");
+    pauseBtn.setAttribute("aria-label", "Resume emulation");
+  } else {
+    if (pauseIcon) pauseIcon.style.display = "block";
+    if (playIcon) playIcon.style.display = "none";
+    pauseBtn.setAttribute("title", "Pause emulation");
+    pauseBtn.setAttribute("aria-label", "Pause emulation");
+  }
+}
+
+function updateTapeUi(): void {
+  const playIcon = tapeBtn.querySelector(".icon-tape-play") as SVGElement | null;
+  const stopIcon = tapeBtn.querySelector(".icon-tape-stop") as SVGElement | null;
+  if (tapePlaying) {
+    if (playIcon) playIcon.style.display = "none";
+    if (stopIcon) stopIcon.style.display = "block";
+    tapeBtn.setAttribute("title", "Stop tape");
+    tapeBtn.setAttribute("aria-label", "Stop tape");
+    tapeBtn.classList.add("playing");
+  } else {
+    if (playIcon) playIcon.style.display = "block";
+    if (stopIcon) stopIcon.style.display = "none";
+    tapeBtn.setAttribute("title", "Play tape");
+    tapeBtn.setAttribute("aria-label", "Play tape");
+    tapeBtn.classList.remove("playing");
+  }
+}
+
 client.onTapeStatus = (playing) => {
   tapePlaying = playing;
-  tapeBtn.textContent = playing ? "Stop Tape" : "Play Tape";
+  updateTapeUi();
   status.textContent = playing ? "Tape playing…" : "Tape stopped.";
 };
 
@@ -136,7 +171,7 @@ function updateModelPrompt(): void {
   romInput.value = "";
   const model = currentModel();
   if (romFileText) romFileText.textContent = "Choose ROM…";
-  if (mediaFileText) mediaFileText.textContent = "Tape/Snapshot…";
+  if (mediaFileText) mediaFileText.textContent = "Insert Tape…";
   const hint = model === "48k" ? "a 48K ROM file" : "both 128K ROM files (128-0.rom, 128-1.rom)";
   status.textContent = `Load ${hint} to begin.`;
 }
@@ -222,7 +257,7 @@ async function loadRomFiles(files: File[]): Promise<void> {
   client.resume();
   romLoaded = true;
   paused = false;
-  pauseBtn.textContent = "Pause";
+  updatePauseUi();
   status.textContent = `${model.toUpperCase()} ROM loaded and reset. Load a snapshot or tape to play.`;
   await ensureAudioStarted();
 }
@@ -255,7 +290,7 @@ async function loadMediaFile(file: File): Promise<void> {
 
   status.textContent = `Loaded "${file.name}". Ready.`;
   paused = false;
-  pauseBtn.textContent = "Pause";
+  updatePauseUi();
   await ensureAudioStarted();
 }
 
@@ -307,12 +342,11 @@ pauseBtn.addEventListener("click", () => {
   if (paused) {
     client.pause();
     audio.suspend();
-    pauseBtn.textContent = "Resume";
   } else {
     client.resume();
     audio.resume();
-    pauseBtn.textContent = "Pause";
   }
+  updatePauseUi();
 });
 
 resetBtn.addEventListener("click", () => {
@@ -323,6 +357,14 @@ resetBtn.addEventListener("click", () => {
 tapeBtn.addEventListener("click", () => {
   if (tapePlaying) client.stopTape();
   else client.playTape();
+});
+
+tapeEjectBtn?.addEventListener("click", async () => {
+  if (tapePlaying) client.stopTape();
+  if (mediaFileText) mediaFileText.textContent = "Insert Tape…";
+  snapshotInput.value = "";
+  await saveSessionMedia(null);
+  status.textContent = "Tape ejected.";
 });
 
 // Ensure audio starts on the first user gesture (click/pointer or keydown)
