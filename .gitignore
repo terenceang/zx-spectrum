@@ -5,3 +5,8 @@ dist/
 .DS_Store
 Thumbs.db
 *.local
+
+# Local test ROMs — never bundled/committed (see docs/architecture.md: users
+# supply their own ROM dumps at runtime; the app is not allowed to redistribute
+# Sinclair/Amstrad copyrighted ROM images).
+/rom/

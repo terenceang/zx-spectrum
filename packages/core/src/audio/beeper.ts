@@ -1,0 +1,45 @@
+/** Records beeper output-level edges (T-state, level) during a frame and renders
+ * them to a PCM sample buffer on demand. Kept separate from UlaEngine so it's
+ * independently testable and so the machine's audio mixdown step can combine it
+ * with the AY chip's output (128K/+3) without either chip knowing about the other. */
+export class Beeper {
+  private edges: { tState: number; level: 0 | 1 }[] = [];
+  private currentLevel: 0 | 1 = 0;
+  private levelAtFrameStart: 0 | 1 = 0;
+
+  reset(): void {
+    this.edges = [];
+    this.currentLevel = 0;
+    this.levelAtFrameStart = 0;
+  }
+
+  /** Called on every write to port 0xFE's beeper bit (bit 4). */
+  setLevel(tState: number, level: 0 | 1): void {
+    if (level === this.currentLevel) return;
+    this.currentLevel = level;
+    this.edges.push({ tState, level });
+  }
+
+  /** Renders this frame's recorded edges to `sampleCount` samples spanning
+   * `[0, tStatesInFrame)`, then clears the edge log and primes the next frame's
+   * start level. Output is in [-1, 1]. */
+  renderFrame(tStatesInFrame: number, sampleCount: number): Float32Array {
+    const out = new Float32Array(sampleCount);
+    const tStatesPerSample = tStatesInFrame / sampleCount;
+    let edgeIndex = 0;
+    let level = this.levelAtFrameStart;
+
+    for (let i = 0; i < sampleCount; i++) {
+      const sampleEndT = (i + 1) * tStatesPerSample;
+      while (edgeIndex < this.edges.length && this.edges[edgeIndex]!.tState < sampleEndT) {
+        level = this.edges[edgeIndex]!.level;
+        edgeIndex++;
+      }
+      out[i] = level ? 1 : -1;
+    }
+
+    this.edges = [];
+    this.levelAtFrameStart = this.currentLevel;
+    return out;
+  }
+}

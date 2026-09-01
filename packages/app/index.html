@@ -4,9 +4,45 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ZX Spectrum Emulator</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #222;
+        color: #eee;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+      }
+      canvas {
+        image-rendering: pixelated;
+        width: 640px;
+        max-width: 100%;
+        border: 2px solid #444;
+      }
+      #controls {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      #status {
+        font-size: 0.85rem;
+        color: #aaa;
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <h1>ZX Spectrum Emulator</h1>
+    <div id="controls">
+      <label>ROM: <input id="rom-input" type="file" accept=".rom,.bin" /></label>
+      <label>Snapshot: <input id="snapshot-input" type="file" accept=".sna,.z80" /></label>
+      <button id="pause-btn">Pause</button>
+      <button id="reset-btn">Reset</button>
+    </div>
+    <canvas id="screen" width="352" height="296"></canvas>
+    <div id="status">Load a 48K ROM to begin.</div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
