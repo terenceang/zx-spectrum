@@ -1,0 +1,14 @@
+{
+  "name": "@zx-spectrum/worker",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "main": "./src/emulator.worker.ts",
+  "types": "./src/protocol.ts",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@zx-spectrum/core": "*"
+  }
+}
