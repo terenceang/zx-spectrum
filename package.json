@@ -10,6 +10,7 @@
     "build": "npm run build --workspace=@zx-spectrum/core && npm run build --workspace=@zx-spectrum/worker && npm run build --workspace=@zx-spectrum/app",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:cpu-exerciser": "vitest run packages/core/src/cpu/zexdoc.test.ts",
     "typecheck": "tsc -b",
     "lint": "eslint ."
   },

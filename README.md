@@ -24,7 +24,8 @@ run; it's cached in your browser's IndexedDB so you only need to do this once.
 ## Testing
 
 ```sh
-npm test           # includes the zexdoc/zexall Z80 correctness suite (~5 min)
+npm test                     # fast unit/integration suite
+npm run test:cpu-exerciser   # zexdoc + zexall Z80 correctness suite (~15 min under vitest)
 npm run typecheck
 npm run lint
 ```
