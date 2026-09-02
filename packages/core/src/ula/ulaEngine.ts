@@ -26,6 +26,7 @@ export class UlaEngine {
   private borderChanges: { tState: number; color: number }[] = [];
   private flashPhase = false;
   private flashFrameCounter = 0;
+  private framebuffer: Uint8Array | null = null;
 
   constructor(
     readonly profile: UlaTimingProfile,
@@ -101,7 +102,11 @@ export class UlaEngine {
     const borderCols = this.profile.borderSideColumns * 8;
     const width = 256 + borderCols * 2;
     const height = 192 + this.profile.borderTopLines + this.profile.borderBottomLines;
-    const pixels = new Uint8Array(width * height);
+    const size = width * height;
+    if (!this.framebuffer || this.framebuffer.length !== size) {
+      this.framebuffer = new Uint8Array(size);
+    }
+    const pixels = this.framebuffer;
     const screen = memory.screenBytes;
 
     let changeIndex = 0;

@@ -33,13 +33,21 @@ export class Z80 {
    * interrupt can be accepted again. NMI is not affected by this delay. */
   interruptsSuppressedForOneStep = false;
 
-  private readonly baseTable: OpcodeTable = buildBaseTable();
-  private readonly cbTable: OpcodeTable = buildCbTable();
-  private readonly edTable: OpcodeTable = buildEdTable();
-  private readonly ixTable: OpcodeTable = buildIndexTable("ix");
-  private readonly iyTable: OpcodeTable = buildIndexTable("iy");
-  private readonly ixCbTable: OpcodeTable = buildIndexCbTable("ix");
-  private readonly iyCbTable: OpcodeTable = buildIndexCbTable("iy");
+  private static cachedBaseTable?: OpcodeTable;
+  private static cachedCbTable?: OpcodeTable;
+  private static cachedEdTable?: OpcodeTable;
+  private static cachedIxTable?: OpcodeTable;
+  private static cachedIyTable?: OpcodeTable;
+  private static cachedIxCbTable?: OpcodeTable;
+  private static cachedIyCbTable?: OpcodeTable;
+
+  private readonly baseTable: OpcodeTable = (Z80.cachedBaseTable ??= buildBaseTable());
+  private readonly cbTable: OpcodeTable = (Z80.cachedCbTable ??= buildCbTable());
+  private readonly edTable: OpcodeTable = (Z80.cachedEdTable ??= buildEdTable());
+  private readonly ixTable: OpcodeTable = (Z80.cachedIxTable ??= buildIndexTable("ix"));
+  private readonly iyTable: OpcodeTable = (Z80.cachedIyTable ??= buildIndexTable("iy"));
+  private readonly ixCbTable: OpcodeTable = (Z80.cachedIxCbTable ??= buildIndexCbTable("ix"));
+  private readonly iyCbTable: OpcodeTable = (Z80.cachedIyCbTable ??= buildIndexCbTable("iy"));
 
   /** Which index register (if any) the instruction currently being decoded/executed
    * is using — read by opcode handlers generated for the index tables so a single

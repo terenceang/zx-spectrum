@@ -1,3 +1,5 @@
+import { DcBlocker } from "./dcBlocker.js";
+
 /** Records beeper output-level edges (T-state, level) during a frame and renders
  * them to a PCM sample buffer on demand. Kept separate from UlaEngine so it's
  * independently testable and so the machine's audio mixdown step can combine it
@@ -10,15 +12,13 @@ export class Beeper {
   private edges: { tState: number; level: 0 | 1 }[] = [];
   private currentLevel: 0 | 1 = 0;
   private levelAtFrameStart: 0 | 1 = 0;
-  private dcPrevIn = 0;
-  private dcPrevOut = 0;
+  private readonly dcBlocker = new DcBlocker();
 
   reset(): void {
     this.edges = [];
     this.currentLevel = 0;
     this.levelAtFrameStart = 0;
-    this.dcPrevIn = 0;
-    this.dcPrevOut = 0;
+    this.dcBlocker.reset();
   }
 
   /** Called on every write to port 0xFE's beeper bit (bit 4). */
@@ -37,7 +37,6 @@ export class Beeper {
     const tStatesPerSample = tStatesInFrame / sampleCount;
     let edgeIndex = 0;
     let level = this.levelAtFrameStart;
-    const R = 0.995;
 
     for (let i = 0; i < sampleCount; i++) {
       const sampleEndT = (i + 1) * tStatesPerSample;
@@ -45,11 +44,7 @@ export class Beeper {
         level = this.edges[edgeIndex]!.level;
         edgeIndex++;
       }
-      const raw = level ? 1 : 0;
-      const y = raw - this.dcPrevIn + R * this.dcPrevOut;
-      this.dcPrevIn = raw;
-      this.dcPrevOut = y;
-      out[i] = Math.max(-1, Math.min(1, y));
+      out[i] = this.dcBlocker.process(level ? 1 : 0);
     }
 
     this.edges = [];

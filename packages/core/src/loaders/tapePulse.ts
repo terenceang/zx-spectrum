@@ -18,8 +18,9 @@ export const BIT0_PULSE = 855;
 export const BIT1_PULSE = 1710;
 export const HEADER_PILOT_COUNT = 8063;
 export const DATA_PILOT_COUNT = 3223;
+export const TSTATES_PER_MS = 3500;
 /** ~1s gap after a block, matching the pause most .tap-producing tools assume. */
-export const DEFAULT_PAUSE_TSTATES = 3_500_000;
+export const DEFAULT_PAUSE_TSTATES = 1000 * TSTATES_PER_MS;
 
 /** Appends one block's pilot+sync+data pulses (the shape every ROM-loader-style
  * block shares, standard or turbo) to `pulses`, continuing the alternating level
@@ -68,4 +69,33 @@ export function appendPilotSyncData(
   }
 
   return level;
+}
+
+/** Appends standard-speed ROM loader pilot, sync, and data pulses to `pulses`. */
+export function appendStandardRomBlock(
+  pulses: TapePulse[],
+  data: Uint8Array,
+  startLevel: 0 | 1,
+): 0 | 1 {
+  const flag = data[0] ?? 0;
+  return appendPilotSyncData(pulses, data, startLevel, {
+    pilotPulse: PILOT_PULSE,
+    pilotCount: flag < 128 ? HEADER_PILOT_COUNT : DATA_PILOT_COUNT,
+    sync1: SYNC1_PULSE,
+    sync2: SYNC2_PULSE,
+    bit0: BIT0_PULSE,
+    bit1: BIT1_PULSE,
+    usedBitsInLastByte: 8,
+  });
+}
+
+/** Appends a pause pulse at level 0 and resets next segment level to 1 to preserve leading edges. */
+export function appendTapePause(
+  pulses: TapePulse[],
+  durationTStates: number,
+): 0 | 1 {
+  if (durationTStates > 0) {
+    pulses.push({ level: 0, duration: durationTStates, pause: true });
+  }
+  return 1;
 }

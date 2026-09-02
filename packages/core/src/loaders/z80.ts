@@ -1,5 +1,6 @@
 import type { CpuState } from "../cpu/z80.js";
 import { REGISTERS_BYTE_LENGTH, RegIndex, WORDS_LENGTH, WordIndex } from "../cpu/registers.js";
+import { RAM_48K_SIZE, ROM_PAGE_SIZE } from "../memory/constants.js";
 import { decompressZ80Rle } from "./rle.js";
 
 export type Z80HardwareMode = "48k" | "128k" | "other";
@@ -70,14 +71,14 @@ export function parseZ80(bytes: Uint8Array): ParsedZ80Snapshot {
     const body = bytes.subarray(30);
     const ram = compressed48k
       ? decompressZ80Rle(body, true)
-      : body.subarray(0, 49152);
+      : body.subarray(0, RAM_48K_SIZE);
 
     return {
       version: 1,
       hardwareMode: "48k",
       cpu: { registerBytes, registerWords, iff1, iff2, im, halted: false },
       border,
-      ram: padTo(ram, 49152),
+      ram: padTo(ram, RAM_48K_SIZE),
     };
   }
 
@@ -107,16 +108,16 @@ export function parseZ80(bytes: Uint8Array): ParsedZ80Snapshot {
     const pageNumber = bytes[offset + 2]!;
     offset += 3;
     if (blockLength === 0xffff) {
-      banks.push({ pageNumber, data: bytes.slice(offset, offset + 16384) });
-      offset += 16384;
+      banks.push({ pageNumber, data: bytes.slice(offset, offset + ROM_PAGE_SIZE) });
+      offset += ROM_PAGE_SIZE;
     } else {
       const compressed = bytes.subarray(offset, offset + blockLength);
-      banks.push({ pageNumber, data: padTo(decompressZ80Rle(compressed, false), 16384) });
+      banks.push({ pageNumber, data: padTo(decompressZ80Rle(compressed, false), ROM_PAGE_SIZE) });
       offset += blockLength;
     }
   }
 
-  const ram = new Uint8Array(49152);
+  const ram = new Uint8Array(RAM_48K_SIZE);
   if (hardwareMode === "48k") {
     for (const { pageNumber, data } of banks) {
       if (pageNumber === 8) ram.set(data, 0x0000); // 0x4000-0x7FFF

@@ -1,3 +1,4 @@
+import { DcBlocker } from "../audio/dcBlocker.js";
 import type { TapePulseSequence } from "./tapePulse.js";
 
 /** T-state-driven tape playback: the ULA polls `levelAt()` on every port 0xFE read
@@ -11,8 +12,7 @@ export class TapeEdgePlayer {
   private cpuPulseStartT = 0;
   private audioIndex = 0;
   private audioPulseStartT = 0;
-  private dcPrevIn = 0;
-  private dcPrevOut = 0;
+  private readonly dcBlocker = new DcBlocker();
   private playing = false;
   private lastReadT = 0;
   private consecutiveReads = 0;
@@ -29,8 +29,7 @@ export class TapeEdgePlayer {
     this.cpuPulseStartT = atTState;
     this.audioIndex = 0;
     this.audioPulseStartT = atTState;
-    this.dcPrevIn = 0;
-    this.dcPrevOut = 0;
+    this.dcBlocker.reset();
     this.lastReadT = 0;
     this.consecutiveReads = 0;
   }
@@ -39,6 +38,7 @@ export class TapeEdgePlayer {
     this.playing = false;
     this.cpuIndex = 0;
     this.audioIndex = 0;
+    this.dcBlocker.reset();
     this.lastReadT = 0;
     this.consecutiveReads = 0;
   }
@@ -98,7 +98,6 @@ export class TapeEdgePlayer {
     }
 
     const tStatesPerSample = durationT / sampleCount;
-    const R = 0.995;
 
     for (let i = 0; i < sampleCount; i++) {
       const sampleEndT = startT + (i + 1) * tStatesPerSample;
@@ -117,11 +116,7 @@ export class TapeEdgePlayer {
         this.playing = false;
         break;
       }
-      const raw = this.pulses[this.audioIndex]!.level ? 1 : 0;
-      const y = raw - this.dcPrevIn + R * this.dcPrevOut;
-      this.dcPrevIn = raw;
-      this.dcPrevOut = y;
-      out[i] = Math.max(-1, Math.min(1, y));
+      out[i] = this.dcBlocker.process(this.pulses[this.audioIndex]!.level ? 1 : 0);
     }
 
     return out;

@@ -7,8 +7,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 // builds core first, so dist/ is always present. Mirrors the same relative-import
 // pattern packages/app/src/worker-client.ts uses for the worker package.
 import {
+  type BaseMachine,
   Machine128k,
   Machine48k,
+  type MachineModel,
   SNAPSHOT_EXTENSIONS,
   SPECTRUM_KEY_MATRIX,
   SPECTRUM_PALETTE_RGB,
@@ -32,10 +34,10 @@ const instanceIdSchema = { instanceId: z.string().optional() };
  * an MCP tool call and its response are already a natural request/reply boundary.
  * `load_rom` replaces this outright (rather than keeping both models alive like
  * the app's worker does for live in-browser switching, which doesn't apply here). */
-let machine: Machine48k | Machine128k | null = null;
-let model: "48k" | "128k" | null = null;
+let machine: BaseMachine | null = null;
+let model: MachineModel | null = null;
 
-function requireMachine(): Machine48k | Machine128k {
+function requireMachine(): BaseMachine {
   if (!machine) throw new Error("No ROM loaded yet — call load_rom first.");
   return machine;
 }

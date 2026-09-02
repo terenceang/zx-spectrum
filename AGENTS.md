@@ -16,7 +16,7 @@ npm run build                  # build all packages
 
 npm workspaces monorepo with TypeScript project references:
 
-- `packages/core` — Pure TS emulator engine (Z80 CPU, memory, ULA, loaders). No DOM/Worker APIs — isolated for testability.
+- `packages/core` — Pure TS emulator engine (Z80 CPU, memory, ULA, loaders, `BaseMachine` hierarchy). No DOM/Worker APIs — isolated for testability.
 - `packages/worker` — Web Worker glue with `SharedArrayBuffer` ring buffers for frame/audio transport.
 - `packages/app` — Vite + vanilla TS UI (canvas, keyboard, audio, file loading).
 - `packages/mcp-server` — Headless MCP server exposing emulator as tools.
@@ -70,6 +70,7 @@ Keep all assets same-origin — COEP `require-corp` breaks cross-origin subresou
 - ROM files not bundled: User must supply own legally-obtained ROM dumps.
 - CPU exerciser not in default test run: Must run explicitly after CPU changes.
 - Cross-origin isolation: Missing headers cause silent performance degradation.
+- Machine models: Extend `BaseMachine<M>` when implementing new models (e.g. +3) to inherit timing, contention, and audio handling.
 
 ## Known Issues
 

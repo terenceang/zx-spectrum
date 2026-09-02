@@ -1,10 +1,11 @@
 import {
   MCP_BRIDGE_PORT,
+  ROM_PAGE_SIZE,
   SNAPSHOT_EXTENSIONS,
   TAPE_EXTENSIONS,
   type BridgeCommand as McpBridgeCommand,
+  type MachineModel,
 } from "@zx-spectrum/core";
-import type { MachineModel } from "../../worker/src/protocol.js";
 import { AudioSink } from "./audio/audioSink.js";
 import { CAPS_SHIFT, KEY_MAP, SYMBOL_CHAR_MAP, SYMBOL_SHIFT } from "./input/keyMapping.js";
 import { Display } from "./ui/display.js";
@@ -194,6 +195,15 @@ function updateModalStartBtn(): void {
   modalStartBtn.disabled = modalRomData === null;
 }
 
+function formatRomFilename(model: string, files: File[]): string {
+  return model === "48k"
+    ? files[0]!.name
+    : [...files]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((f) => f.name)
+        .join(", ");
+}
+
 function validateRomFiles(
   model: string,
   files: File[],
@@ -202,10 +212,10 @@ function validateRomFiles(
     if (files.length !== 1) {
       return { ok: false, error: "48K requires exactly one ROM file." };
     }
-    if (files[0]!.size !== 0x4000) {
+    if (files[0]!.size !== ROM_PAGE_SIZE) {
       return {
         ok: false,
-        error: `Invalid 48K ROM size: ${files[0]!.size} bytes (expected 16384).`,
+        error: `Invalid 48K ROM size: ${files[0]!.size} bytes (expected ${ROM_PAGE_SIZE}).`,
       };
     }
     return { ok: true };
@@ -214,8 +224,8 @@ function validateRomFiles(
       return { ok: false, error: "128K requires exactly two ROM files (128-0.rom, 128-1.rom)." };
     }
     const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
-    if (sorted[0]!.size !== 0x4000 || sorted[1]!.size !== 0x4000) {
-      return { ok: false, error: `Invalid 128K ROM size (each must be 16384 bytes).` };
+    if (sorted[0]!.size !== ROM_PAGE_SIZE || sorted[1]!.size !== ROM_PAGE_SIZE) {
+      return { ok: false, error: `Invalid 128K ROM size (each must be ${ROM_PAGE_SIZE} bytes).` };
     }
     return { ok: true };
   }
@@ -283,13 +293,7 @@ async function loadRomFiles(files: File[]): Promise<void> {
   }
 
   const data = await readRomFiles(model, files);
-  const filename =
-    model === "48k"
-      ? files[0]!.name
-      : [...files]
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((f) => f.name)
-          .join(", ");
+  const filename = formatRomFilename(model, files);
 
   saveRomToStorage({ model, filename, data: data.slice(0) });
 
@@ -422,13 +426,7 @@ modalRomInput.addEventListener("change", async () => {
   modalError.style.display = "none";
   const data = await readRomFiles(model, files);
   modalRomData = data;
-  modalRomFilename =
-    model === "48k"
-      ? files[0]!.name
-      : [...files]
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map((f) => f.name)
-          .join(", ");
+  modalRomFilename = formatRomFilename(model, files);
   modalRomText.textContent = modalRomFilename;
   updateModalStartBtn();
 });
@@ -485,22 +483,17 @@ tapeEjectBtn?.addEventListener("click", async () => {
   status.textContent = "Tape ejected.";
 });
 
-// Ensure audio starts on the first user gesture (click/pointer or keydown)
-window.addEventListener("pointerdown", () => {
-  void ensureAudioStarted();
-});
-window.addEventListener("click", () => {
-  void ensureAudioStarted();
-});
-window.addEventListener("touchstart", () => {
-  void ensureAudioStarted();
-}, { passive: true });
+// Ensure audio starts on the first user gesture (pointerdown or keydown)
+const onFirstGesture = (): void => {
+  if (audio.getState() !== "running") void ensureAudioStarted();
+};
+window.addEventListener("pointerdown", onFirstGesture, { passive: true });
 
 // PC keyboard -> Matrix mapping
 const activeSymbolKeys = new Map<string, { row: number; bit: number }>();
 
 window.addEventListener("keydown", (e) => {
-  void ensureAudioStarted();
+  onFirstGesture();
   if (normalKeyboardToggle.checked) {
     const target = SYMBOL_CHAR_MAP[e.key];
     if (target) {

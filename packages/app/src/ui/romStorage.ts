@@ -1,6 +1,4 @@
-/** Persists ROM data in localStorage as base64 strings. */
-
-import type { MachineModel } from "../../../worker/src/protocol.js";
+import type { MachineModel } from "@zx-spectrum/core";
 import { arrayBufferToBase64, base64ToArrayBuffer } from "../utils/base64.js";
 
 const ROM_KEY_48K = "zx_spectrum_rom_48k";

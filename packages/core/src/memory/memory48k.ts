@@ -1,15 +1,16 @@
+import { RAM_48K_SIZE, ROM_PAGE_SIZE } from "./constants.js";
 import type { MemoryDevice } from "./memoryDevice.js";
 
 /** 48K Spectrum memory map: 16K ROM at 0x0000-0x3FFF, 48K RAM at 0x4000-0xFFFF.
  * The lower 16K of RAM (0x4000-0x7FFF, holding the display file and attributes) is
  * the ULA-contended page; the rest is not. */
 export class Memory48k implements MemoryDevice {
-  private readonly rom = new Uint8Array(0x4000);
-  private readonly ram = new Uint8Array(0xc000);
+  private readonly rom = new Uint8Array(ROM_PAGE_SIZE);
+  private readonly ram = new Uint8Array(RAM_48K_SIZE);
 
   loadRom(rom: Uint8Array): void {
-    if (rom.length !== 0x4000) {
-      throw new Error(`48K ROM must be exactly 16384 bytes, got ${rom.length}`);
+    if (rom.length !== ROM_PAGE_SIZE) {
+      throw new Error(`48K ROM must be exactly ${ROM_PAGE_SIZE} bytes, got ${rom.length}`);
     }
     this.rom.set(rom);
   }
@@ -17,7 +18,7 @@ export class Memory48k implements MemoryDevice {
   /** Loads RAM image (0x4000-0xFFFF). If shorter than 49152 bytes, the remainder
    * is zero-filled. If longer, only the first 49152 bytes are used. */
   loadRam(ram: Uint8Array): void {
-    this.ram.set(ram.subarray(0, 0xc000));
+    this.ram.set(ram.subarray(0, RAM_48K_SIZE));
   }
 
   read8(address: number): number {

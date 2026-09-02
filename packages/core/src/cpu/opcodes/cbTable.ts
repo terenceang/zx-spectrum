@@ -1,6 +1,5 @@
 import type { OpcodeFn, OpcodeTable } from "../types.js";
-import type { Z80 } from "../z80.js";
-import { bit8, bitFromMemory, res8, rl8, rlc8, rr8, rrc8, set8, sla8, sll8, sra8, srl8 } from "./alu.js";
+import { ROTATE_OPS, bit8, bitFromMemory, res8, set8 } from "./alu.js";
 import { getReg8Plain, setReg8Plain } from "./registerAccess.js";
 
 // CB-prefixed opcode map: rotate/shift group (0x00-0x3F), BIT (0x40-0x7F), RES
@@ -8,17 +7,6 @@ import { getReg8Plain, setReg8Plain } from "./registerAccess.js";
 // the base table (6 = (HL)). Both CB prefix and opcode bytes are fetched as M1
 // cycles by the dispatcher in z80.ts (8T base), so these handlers only add the
 // extra internal/memory cycles for the (HL) forms.
-
-const ROTATE_OPS: readonly ((cpu: Z80, value: number) => number)[] = [
-  rlc8,
-  rrc8,
-  rl8,
-  rr8,
-  sla8,
-  sra8,
-  sll8,
-  srl8,
-];
 
 export function buildCbTable(): OpcodeTable {
   const table: OpcodeFn[] = new Array(256);

@@ -1,6 +1,6 @@
 import type { IndexRegister, OpcodeFn, OpcodeTable } from "../types.js";
 import type { Z80 } from "../z80.js";
-import { bitFromMemory, res8, rl8, rlc8, rr8, rrc8, set8, sla8, sll8, sra8, srl8 } from "./alu.js";
+import { ROTATE_OPS, bitFromMemory, res8, set8 } from "./alu.js";
 import { setReg8Plain } from "./registerAccess.js";
 
 // DD CB dd oo / FD CB dd oo: bit operations on (IX+d)/(IY+d). The dispatcher in
@@ -13,17 +13,6 @@ import { setReg8Plain } from "./registerAccess.js";
 // when the low 3 bits of the opcode select a register other than (HL)'s slot (6),
 // the result is written to *both* (index+d) and that plain register (B/C/D/E/H/L/A
 // — never IXH/IXL). This is well-documented undocumented Z80 behavior.
-
-const ROTATE_OPS: readonly ((cpu: Z80, value: number) => number)[] = [
-  rlc8,
-  rrc8,
-  rl8,
-  rr8,
-  sla8,
-  sra8,
-  sll8,
-  srl8,
-];
 
 export function buildIndexCbTable(reg: IndexRegister): OpcodeTable {
   const table: OpcodeFn[] = new Array(256);

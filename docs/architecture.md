@@ -9,25 +9,29 @@ npm workspaces monorepo, TypeScript project references enforcing module boundari
   `"lib": ["ES2022"]` with no `"DOM"`, so any accidental `window`/`document`/
   `postMessage` dependency fails to compile. This is what keeps the core testable
   in plain Node/Vitest and reusable outside the Worker.
-- `packages/worker` — Web Worker glue: owns a live `Machine48k` instance, the
-  `postMessage` protocol (`protocol.ts`), and the `SharedArrayBuffer` ring-buffer
-  implementations (`ring-buffers.ts`) for tear-free frame/audio transport.
+- `packages/worker` — Web Worker glue: owns live `Machine48k` and `Machine128k` instances
+  (inheriting from `BaseMachine`), the `postMessage` protocol (`protocol.ts`), and the
+  `SharedArrayBuffer` ring-buffer implementations (`ring-buffers.ts`) for tear-free
+  frame/audio transport.
 - `packages/app` — Vite + vanilla TS UI shell: canvas display, keyboard input
   mapping, ROM/snapshot file loading, Web Audio playback.
 - `packages/test-fixtures` — test-only binary assets (zexdoc.com/zexall.com CPU
   exerciser binaries).
 - `packages/mcp-server` — headless MCP server exposing a `Machine48k`/`Machine128k`
-  as MCP tools (load ROM/snapshot/tape, press keys, run frames, read the screen as
-  a PNG) so an MCP client can drive and inspect the emulator without a browser.
+  (driven polymorphically through `BaseMachine`) as MCP tools (load ROM/snapshot/tape,
+  press keys, run frames, read the screen as a PNG) so an MCP client can drive and inspect
+  the emulator without a browser.
 
 ## Z80 CPU core (`packages/core/src/cpu/`)
 
 Opcode dispatch is table-driven (`opcodes/baseTable.ts`, `cbTable.ts`, `edTable.ts`,
 `indexTable.ts`, `indexCbTable.ts`), built via loops over the repetitive instruction
 families (LD r,r'; ALU A,r; INC/DEC r; rotate/shift group; BIT/RES/SET) rather than
-~1500 hand-written opcode functions. The DD/FD-prefixed table starts as a copy of
-the base table's function references and only overrides the ~60 opcodes the prefix
-actually affects — every other opcode is unaffected by design on real hardware.
+~1500 hand-written opcode functions. Static dispatch tables are built lazily once and
+cached across `Z80` instances, eliminating closure allocation overhead. The shared
+rotate/shift function table (`ROTATE_OPS`) is centralized in `opcodes/alu.ts`. The DD/FD-prefixed
+table starts as a copy of the base table's function references and only overrides the ~60
+opcodes the prefix actually affects — every other opcode is unaffected by design on real hardware.
 
 **Verified against zexdoc and zexall** (Frank Cringle's Z80 instruction exerciser,
 documented- and undocumented-flags variants respectively) — both pass with zero
@@ -59,7 +63,15 @@ beam-racing, with a logged border-color-change list rasterized per scanline so
 border-stripe loader effects still render correctly. The framebuffer stays
 **palette-indexed** (1 byte/pixel, 0-15), not pre-expanded RGBA — the RGBA LUT
 lives in the app layer (`packages/app/src/ui/display.ts`) at blit time, keeping the
-worker→main-thread frame payload 4x smaller.
+worker→main-thread frame payload 4x smaller. `UlaEngine` reuses a pre-allocated
+framebuffer across frames, and `Display` caches its canvas `Uint32Array` view to avoid
+allocation churn.
+
+## Audio (`packages/core/src/audio/`)
+
+Audio filtering relies on `DcBlocker` (`packages/core/src/audio/dcBlocker.ts`), a single-pole
+IIR high-pass filter (`y[n] = x[n] - x[n-1] + 0.995 * y[n-1]`) shared between the ULA `Beeper`
+and `TapeEdgePlayer`. This removes the DC bias inherent in square-wave pulse audio before mixing.
 
 ## Web Worker transport
 
@@ -78,32 +90,34 @@ selected automatically at `EmulatorClient` construction time.
 
 `.tap` blocks and the common `.tzx` block types (0x10-0x14 speed-data variants,
 0x20-0x22/0x30/0x32/0x33 pauses/metadata) both parse down to one
-`TapePulseSequence` (a flat list of `{level, duration}` edges). `TapeEdgePlayer`
-plays that sequence against the machine's `totalTStates` clock — a counter that,
-unlike the per-frame `tStates` used for contention/interrupt timing, never resets,
-since tape playback spans many frames. The ULA's port 0xFE read takes the current
-EAR level as a parameter (supplied by the machine from the tape player) rather than
-owning tape state itself.
+`TapePulseSequence` (a flat list of `{level, duration}` edges). Pulse generation
+and pause handling are consolidated into reusable utilities (`appendStandardRomBlock`,
+`appendTapePause`). `TapeEdgePlayer` plays that sequence against the machine's
+`totalTStates` clock — a counter that, unlike the per-frame `tStates` used for
+contention/interrupt timing, never resets, since tape playback spans many frames.
+The ULA's port 0xFE read takes the current EAR level as a parameter (supplied by the
+machine from the tape player) rather than owning tape state itself.
 
 No fast-load trap — accurate pulse-timing playback is the only path. Verified
 against the real 48K ROM's `LD-BYTES` routine, not just our own parser (see
 `docs/roadmap.md`).
 
-## 128K/+2 (`packages/core/src/memory/memory128k.ts`, `audio/ayChip.ts`,
-`machines/machine128k.ts`)
+## Machine composition (`packages/core/src/machines/`)
 
-`Memory128k` contends by physical bank (odd banks 1/3/5/7), not by address slot —
-the ULA's video-fetch contention follows whichever RAM chip is actually being
-accessed, so a contended bank stays contended no matter which 16K slot it's
-currently paged into. `UlaEngine.renderFrame` was generalized from a concrete
-`Memory48k` parameter to a structural `ScreenSource` interface (`{ screenBytes:
-Uint8Array }`) so the same renderer works against `Memory128k`'s bank-5/bank-7
-screen selection unchanged.
+Both `Machine48k` and `Machine128k` extend `BaseMachine<M extends MemoryDevice>`,
+which implements `Z80Bus` and orchestrates CPU execution, contention, ULA rendering,
+keyboard input, tape playback, and unified audio extraction (`getAudioSamples`).
 
-`AyChip` is a free-running oscillator, not frame-scoped like `Beeper` — its tone/
-noise/envelope counters advance via a fractional clock accumulator
-(`AY_CLOCK_HZ` / host sample rate) so pitch stays correct across frame boundaries
-without drift. `Machine128k.getAudioSamples` mixes it 50/50 with the beeper.
+In `Machine128k`:
+- `Memory128k` contends by physical bank (odd banks 1/3/5/7), not by address slot —
+  the ULA's video-fetch contention follows whichever RAM chip is actually being
+  accessed, so a contended bank stays contended no matter which 16K slot it's
+  currently paged into.
+- `AyChip` is a free-running oscillator, not frame-scoped like `Beeper` — its tone/
+  noise/envelope counters advance via a fractional clock accumulator
+  (`AY_CLOCK_HZ` / host sample rate) so pitch stays correct across frame boundaries
+  without drift. Generator counter rollover limits are precomputed to avoid division
+  in the inner tick loop. `Machine128k.getAudioSamples` mixes AY and beeper audio.
 
 ## MCP server (`packages/mcp-server`)
 
@@ -144,11 +158,13 @@ Shared ring buffer geometry constants (`MAX_FRAME_WIDTH`, `MAX_FRAME_HEIGHT`,
 directly instantiates `AudioRing` from `packages/worker/src/ring-buffers.ts` rather
 than reimplementing the lock-free read logic.
 
-## ROM sourcing
+## ROM and session persistence
 
-The app never bundles Sinclair/Amstrad ROM images. Users supply their own ROM file
-via the file picker on first run; it's cached in IndexedDB (`packages/app/src/ui/
-sessionStore.ts`) so the prompt only happens once per browser.
+The app never bundles Sinclair/Amstrad ROM images. Users supply their own ROM file(s)
+via the file picker on first run; ROM bytes are cached in `localStorage`
+(`packages/app/src/ui/romStorage.ts`) per machine model so the prompt only happens
+once per browser. Active snapshot and tape sessions are stored in IndexedDB
+(`packages/app/src/ui/sessionStore.ts`) to restore emulator state seamlessly across page reloads.
 
 ## Deployment (Proxmox LXC)
 

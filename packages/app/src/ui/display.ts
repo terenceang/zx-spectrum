@@ -8,6 +8,7 @@ export class Display {
   private readonly ctx: CanvasRenderingContext2D;
   private readonly lut: Uint32Array;
   private imageData: ImageData | null = null;
+  private dest: Uint32Array | null = null;
   private lastWidth = 0;
   private lastHeight = 0;
 
@@ -31,15 +32,15 @@ export class Display {
       this.canvas.width = frame.width;
       this.canvas.height = frame.height;
       this.imageData = this.ctx.createImageData(frame.width, frame.height);
+      this.dest = new Uint32Array(this.imageData.data.buffer);
       this.lastWidth = frame.width;
       this.lastHeight = frame.height;
     }
-    const imageData = this.imageData!;
-    const dest = new Uint32Array(imageData.data.buffer);
+    const dest = this.dest!;
     const pixelCount = Math.min(frame.pixels.length, frame.width * frame.height, dest.length);
     for (let i = 0; i < pixelCount; i++) {
       dest[i] = this.lut[frame.pixels[i]!]!;
     }
-    this.ctx.putImageData(imageData, 0, 0);
+    this.ctx.putImageData(this.imageData!, 0, 0);
   }
 }

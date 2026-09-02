@@ -1,6 +1,8 @@
 import {
+  type BaseMachine,
   Machine48k,
   Machine128k,
+  ROM_PAGE_SIZE,
   applySnapshotTo48k,
   applySnapshotTo128k,
   parseSna,
@@ -25,7 +27,7 @@ const machine48k = new Machine48k();
 const machine128k = new Machine128k();
 let model: MachineModel = "48k";
 
-function currentMachine(): Machine48k | Machine128k {
+function currentMachine(): BaseMachine {
   return model === "48k" ? machine48k : machine128k;
 }
 
@@ -45,10 +47,7 @@ function tick(): void {
     const machine = currentMachine();
     machine.runFrame();
     const { pixels, width, height } = machine.getFrameBuffer();
-    const audio =
-      model === "48k"
-        ? machine48k.getAudioSamples(SAMPLES_PER_FRAME)
-        : machine128k.getAudioSamples(SAMPLES_PER_FRAME, DEFAULT_SAMPLE_RATE);
+    const audio = machine.getAudioSamples(SAMPLES_PER_FRAME, DEFAULT_SAMPLE_RATE);
 
     const playing = machine.tape.isPlaying();
     if (playing !== lastTapePlaying) {
@@ -106,7 +105,10 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       if (message.model === "48k") {
         machine48k.loadRom(bytes);
       } else {
-        machine128k.loadRoms(bytes.subarray(0, 0x4000), bytes.subarray(0x4000, 0x8000));
+        machine128k.loadRoms(
+          bytes.subarray(0, ROM_PAGE_SIZE),
+          bytes.subarray(ROM_PAGE_SIZE, ROM_PAGE_SIZE * 2),
+        );
       }
       break;
     }

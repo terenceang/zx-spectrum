@@ -20,6 +20,7 @@ export class KeyboardState {
   /** OR-combines every row selected by a 0 bit in `addressHigh`, matching the ULA's
    * partial-decode row-select behavior for port 0xFE reads. */
   readPort(addressHigh: number): number {
+    if ((addressHigh & 0xff) === 0xff) return 0x1f;
     let result = 0x1f;
     for (let row = 0; row < 8; row++) {
       if (((addressHigh >> row) & 1) === 0) {

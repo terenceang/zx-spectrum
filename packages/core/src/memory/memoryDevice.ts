@@ -9,4 +9,7 @@ export interface MemoryDevice {
   /** Debug/tooling access: no contention side effects, ROM writes still no-op. */
   peek8(address: number): number;
   poke8(address: number, value: number): void;
+
+  /** Display RAM view for the ULA renderer (0x4000-0x5AFF). */
+  readonly screenBytes: Uint8Array;
 }

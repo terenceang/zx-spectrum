@@ -1,11 +1,13 @@
 import type { CpuState } from "../cpu/z80.js";
 import { REGISTERS_BYTE_LENGTH, RegIndex, WORDS_LENGTH, WordIndex } from "../cpu/registers.js";
+import type { MachineModel } from "../machines/types.js";
+import { RAM_48K_SIZE, ROM_PAGE_SIZE } from "../memory/constants.js";
 
 /** Parsed .sna snapshot, independent of any live Machine — apply() (in
  * loaders/apply.ts) is what actually pokes this into a running machine. Keeping
  * parse and apply separate makes both independently testable. */
 export interface ParsedSnaSnapshot {
-  model: "48k" | "128k";
+  model: MachineModel;
   cpu: CpuState;
   border: number;
   /** Flat 48K RAM image (0x4000-0xFFFF), 49152 bytes. */
@@ -18,8 +20,7 @@ export interface ParsedSnaSnapshot {
 }
 
 const HEADER_LENGTH = 27;
-const RAM_LENGTH_48K = 49152;
-const SNA_48K_LENGTH = HEADER_LENGTH + RAM_LENGTH_48K;
+const SNA_48K_LENGTH = HEADER_LENGTH + RAM_48K_SIZE;
 
 export function parseSna(bytes: Uint8Array): ParsedSnaSnapshot {
   if (bytes.length !== SNA_48K_LENGTH && bytes.length < SNA_48K_LENGTH + 4) {
@@ -65,15 +66,15 @@ export function parseSna(bytes: Uint8Array): ParsedSnaSnapshot {
   const im = (bytes[25]! & 0x03) as 0 | 1 | 2;
   const border = bytes[26]! & 0x07;
 
-  const ram = bytes.slice(HEADER_LENGTH, HEADER_LENGTH + RAM_LENGTH_48K);
+  const ram = bytes.slice(HEADER_LENGTH, HEADER_LENGTH + RAM_48K_SIZE);
 
   // The 48K .sna format has no PC field: it's stored on top of the stack by the
   // tool that created the snapshot, so loading it means "popping" PC from (SP) and
   // adjusting SP by 2 — exactly what a RET would do.
-  const spOffset = (sp - 0x4000) & 0xffff;
+  const spOffset = (sp - ROM_PAGE_SIZE) & 0xffff;
   let pc: number;
   if (bytes.length === SNA_48K_LENGTH) {
-    if (sp < 0x4000 || sp > 0xffff) {
+    if (sp < ROM_PAGE_SIZE || sp > 0xffff) {
       throw new Error(`Invalid SP in .sna snapshot: 0x${sp.toString(16)} (must be in RAM range 0x4000-0xFFFF)`);
     }
     const low = ram[spOffset]!;
@@ -106,9 +107,9 @@ export function parseSna(bytes: Uint8Array): ParsedSnaSnapshot {
   const activeBank = port7ffd & 0x07;
   for (let bank = 0; bank < 8; bank++) {
     if (bank === 5 || bank === 2 || bank === activeBank) continue; // already in `ram`
-    if (offset + 0x4000 > bytes.length) break;
-    pagedBanks.push({ bank, data: bytes.slice(offset, offset + 0x4000) });
-    offset += 0x4000;
+    if (offset + ROM_PAGE_SIZE > bytes.length) break;
+    pagedBanks.push({ bank, data: bytes.slice(offset, offset + ROM_PAGE_SIZE) });
+    offset += ROM_PAGE_SIZE;
   }
 
   return {

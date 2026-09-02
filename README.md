@@ -12,14 +12,18 @@ npm install
 npm run dev       # Vite dev server at http://localhost:5173
 ```
 
-Open the page, load a 48K ROM file (see below), then drop in a `.sna` or `.z80`
-snapshot to play.
+Open the page, select 48K or 128K mode, load the corresponding ROM file(s) (see below),
+then drop in a `.sna`, `.z80` snapshot or `.tap`, `.tzx` tape file to play.
 
-### ROM
+### ROMs
 
 This app does **not** bundle Sinclair/Amstrad ROM images — that's copyrighted
-material. Supply your own 48K ROM dump (16384 bytes) via the file picker on first
-run; it's cached in your browser's IndexedDB so you only need to do this once.
+material. Supply your own ROM dump via the modal or settings on first run:
+- **48K**: a single 16384-byte ROM dump
+- **128K**: two 16384-byte ROM dumps (`128-0.rom` and `128-1.rom`)
+
+ROMs are cached in your browser's `localStorage` per machine model so you only need
+to supply them once. Active tape and snapshot sessions persist in IndexedDB across reloads.
 
 ## Testing
 

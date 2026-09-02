@@ -26,16 +26,18 @@ export class AyChip {
   private readonly registers = new Uint8Array(REGISTER_COUNT);
   private selectedRegister = 0;
 
-  private readonly tonePeriod = [1, 1, 1];
-  private readonly toneCounter = [0, 0, 0];
-  private readonly toneOutput: (0 | 1)[] = [0, 0, 0];
+  private readonly tonePeriod = new Int32Array(3).fill(1);
+  private readonly toneLimit = new Int32Array(3).fill(8);
+  private readonly toneCounter = new Int32Array(3);
+  private readonly toneOutput = new Uint8Array(3);
 
   private noisePeriod = 1;
+  private noiseLimit = 16;
   private noiseCounter = 0;
   private noiseShift = 1; // 17-bit LFSR, must never settle at 0
   private noiseOutput: 0 | 1 = 0;
 
-  private envelopePeriod = 1;
+  private envelopeLimit = 8;
   private envelopeCounter = 0;
   private envelopeStep = 0; // 0-15 within the current ramp
   private envelopeAscending = false;
@@ -48,13 +50,15 @@ export class AyChip {
     this.registers.fill(0);
     this.selectedRegister = 0;
     this.tonePeriod.fill(1);
+    this.toneLimit.fill(8);
     this.toneCounter.fill(0);
     this.toneOutput.fill(0);
     this.noisePeriod = 1;
+    this.noiseLimit = 16;
     this.noiseCounter = 0;
     this.noiseShift = 1;
     this.noiseOutput = 0;
-    this.envelopePeriod = 1;
+    this.envelopeLimit = 8;
     this.envelopeCounter = 0;
     this.envelopeStep = 0;
     this.envelopeAscending = false;
@@ -94,12 +98,16 @@ export class AyChip {
     for (let ch = 0; ch < 3; ch++) {
       const fine = this.registers[ch * 2]!;
       const coarse = this.registers[ch * 2 + 1]! & 0x0f;
-      this.tonePeriod[ch] = ((coarse << 8) | fine) || 1;
+      const period = ((coarse << 8) | fine) || 1;
+      this.tonePeriod[ch] = period;
+      this.toneLimit[ch] = period * 8;
     }
     this.noisePeriod = (this.registers[6]! & 0x1f) || 1;
+    this.noiseLimit = this.noisePeriod * 16;
     const envFine = this.registers[11]!;
     const envCoarse = this.registers[12]!;
-    this.envelopePeriod = ((envCoarse << 8) | envFine) || 1;
+    const envPeriod = ((envCoarse << 8) | envFine) || 1;
+    this.envelopeLimit = envPeriod * 8;
   }
 
   /** Writing R13 always restarts the envelope generator from the start of its ramp
@@ -116,15 +124,17 @@ export class AyChip {
   /** Advances every generator by one AY clock cycle. */
   private tick(): void {
     for (let ch = 0; ch < 3; ch++) {
-      this.toneCounter[ch]!++;
-      if (this.toneCounter[ch]! >= this.tonePeriod[ch]! * 8) {
+      const nextCounter = this.toneCounter[ch]! + 1;
+      if (nextCounter >= this.toneLimit[ch]!) {
         this.toneCounter[ch] = 0;
         this.toneOutput[ch] = this.toneOutput[ch] ? 0 : 1;
+      } else {
+        this.toneCounter[ch] = nextCounter;
       }
     }
 
     this.noiseCounter++;
-    if (this.noiseCounter >= this.noisePeriod * 16) {
+    if (this.noiseCounter >= this.noiseLimit) {
       this.noiseCounter = 0;
       this.noiseOutput = (this.noiseShift & 1) as 0 | 1;
       // 17-bit Fibonacci LFSR, taps at bits 0 and 3 (standard AY noise polynomial).
@@ -134,7 +144,7 @@ export class AyChip {
 
     if (this.envelopeHolding) return;
     this.envelopeCounter++;
-    if (this.envelopeCounter >= this.envelopePeriod * 8) {
+    if (this.envelopeCounter >= this.envelopeLimit) {
       this.envelopeCounter = 0;
       this.advanceEnvelopeStep();
     }

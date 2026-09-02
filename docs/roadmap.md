@@ -102,6 +102,20 @@ load with real loading stripes/sound.
 **Demo**: switch to 128K model, load a 128K game/tune, hear AY music alongside
 beeper effects.
 
+## Architectural Consolidation & Optimization Pass (2026-09-03)
+
+- [x] **BaseMachine Extraction**: Unified 80%+ duplicate machine logic across `Machine48k` and `Machine128k` into `BaseMachine<M extends MemoryDevice>`. Both machines now share CPU, keyboard, tape, frame execution, and bus contention handling with polymorphic `getAudioSamples`.
+- [x] **Single Source of Truth (SSoT)**: Centralized machine types (`MachineModel`, `FrameBuffer`, `MediaFormat`) and memory constants (`ROM_PAGE_SIZE`, `RAM_48K_SIZE`, `TOTAL_RAM_128K_BANKS`) in `@zx-spectrum/core`. Cleaned up redundant storage routines in favor of dedicated `romStorage` (`localStorage`) and `sessionStore` (IndexedDB).
+- [x] **Hot Path & Allocation Optimization**:
+  - `AyChip`: Precomputed counter reload limits (`toneLimit`, `noiseLimit`, `envelopeLimit`), eliminating over 100,000 operations per frame in the inner generator tick loop.
+  - `UlaEngine`: Eliminated per-frame 76.8 KB garbage collection churn by caching and reusing internal framebuffer allocations.
+  - `Display`: Reused `Uint32Array` view for canvas blitting.
+  - `Z80`: Statically cached opcode tables and unified `ROTATE_OPS` across CB and Index-CB instruction dispatchers.
+  - `KeyboardState`: Fast-pathed unselected keyboard matrix reads.
+- [x] **Bug Fixes & Loader Deduplication**:
+  - Fixed buffer capacity truncation bug in `decompressZ80Rle` for snapshots with large compression ratios.
+  - Consolidated tape pause and standard ROM block serialization across `.tap` and `.tzx`.
+
 ## Phase 4 — +3 support
 
 - [ ] Second paging port (`0x1ffd`) + special all-RAM modes in `MemoryPlus3`

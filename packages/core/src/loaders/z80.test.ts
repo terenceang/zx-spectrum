@@ -86,4 +86,20 @@ describe("parseZ80", () => {
     expect(snapshot.cpu.registerWords[WordIndex.PC]).toBe(0x9000);
     expect(snapshot.ram[0]).toBe(0x77); // page 8 -> RAM offset 0 (0x4000)
   });
+
+  it("decompresses RLE data where uncompressed size far exceeds compressed stream length", () => {
+    const header = baseHeaderV1(0x8000, (3 << 1) | 0x20);
+    // 8 bytes compressed representing 100 bytes of 0x55
+    const body = Uint8Array.from([0xed, 0xed, 100, 0x55, 0x00, 0xed, 0xed, 0x00]);
+    const bytes = new Uint8Array(30 + body.length);
+    bytes.set(header, 0);
+    bytes.set(body, 30);
+
+    const snapshot = parseZ80(bytes);
+    expect(snapshot.ram.length).toBe(49152);
+    for (let i = 0; i < 100; i++) {
+      expect(snapshot.ram[i]).toBe(0x55);
+    }
+    expect(snapshot.ram[100]).toBe(0);
+  });
 });

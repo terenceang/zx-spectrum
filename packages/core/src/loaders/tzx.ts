@@ -1,16 +1,10 @@
 import {
-  BIT0_PULSE,
-  BIT1_PULSE,
-  DATA_PILOT_COUNT,
-  HEADER_PILOT_COUNT,
-  PILOT_PULSE,
-  SYNC1_PULSE,
-  SYNC2_PULSE,
+  TSTATES_PER_MS,
   appendPilotSyncData,
+  appendStandardRomBlock,
+  appendTapePause,
   type TapePulseSequence,
 } from "./tapePulse.js";
-
-const TSTATES_PER_MS = 3500;
 
 // Block IDs covering real-world .tzx content: the speed-data variants (which is
 // what any pulse ends up as) plus the common metadata/grouping blocks, which are
@@ -44,22 +38,8 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         const length = u16(offset + 2);
         const data = bytes.subarray(offset + 4, offset + 4 + length);
         offset += 4 + length;
-        const flag = data[0] ?? 0;
-        level = appendPilotSyncData(pulses, data, level, {
-          pilotPulse: PILOT_PULSE,
-          pilotCount: flag < 128 ? HEADER_PILOT_COUNT : DATA_PILOT_COUNT,
-          sync1: SYNC1_PULSE,
-          sync2: SYNC2_PULSE,
-          bit0: BIT0_PULSE,
-          bit1: BIT1_PULSE,
-          usedBitsInLastByte: 8,
-        });
-        if (pauseMs > 0) {
-          pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS, pause: true });
-          // See parseTap: the next segment must start with a real edge out of the
-          // pause, not another level-0 pulse merging into one flat segment.
-          level = 1;
-        }
+        level = appendStandardRomBlock(pulses, data, level);
+        level = appendTapePause(pulses, pauseMs * TSTATES_PER_MS);
         break;
       }
       case 0x11: {
@@ -85,12 +65,7 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
           bit1,
           usedBitsInLastByte,
         });
-        if (pauseMs > 0) {
-          pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS, pause: true });
-          // See parseTap: the next segment must start with a real edge out of the
-          // pause, not another level-0 pulse merging into one flat segment.
-          level = 1;
-        }
+        level = appendTapePause(pulses, pauseMs * TSTATES_PER_MS);
         break;
       }
       case 0x12: {
@@ -136,12 +111,7 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
           bit1,
           usedBitsInLastByte,
         });
-        if (pauseMs > 0) {
-          pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS, pause: true });
-          // See parseTap: the next segment must start with a real edge out of the
-          // pause, not another level-0 pulse merging into one flat segment.
-          level = 1;
-        }
+        level = appendTapePause(pulses, pauseMs * TSTATES_PER_MS);
         break;
       }
       case 0x20: {
@@ -150,12 +120,7 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         if (offset + 2 > bytes.length) throw new Error("Truncated 0x20 block in .tzx");
         const pauseMs = u16(offset);
         offset += 2;
-        if (pauseMs > 0) {
-          pulses.push({ level: 0, duration: pauseMs * TSTATES_PER_MS, pause: true });
-          // See parseTap: the next segment must start with a real edge out of the
-          // pause, not another level-0 pulse merging into one flat segment.
-          level = 1;
-        }
+        level = appendTapePause(pulses, pauseMs * TSTATES_PER_MS);
         break;
       }
       case 0x21: {

@@ -342,3 +342,14 @@ export function res8(bitIndex: number, value: number): number {
 export function set8(bitIndex: number, value: number): number {
   return (value | (1 << bitIndex)) & 0xff;
 }
+
+export const ROTATE_OPS: readonly ((cpu: Z80, value: number) => number)[] = [
+  rlc8,
+  rrc8,
+  rl8,
+  rr8,
+  sla8,
+  sra8,
+  sll8,
+  srl8,
+];

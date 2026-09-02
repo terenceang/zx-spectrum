@@ -1,13 +1,7 @@
 import {
-  BIT0_PULSE,
-  BIT1_PULSE,
-  DATA_PILOT_COUNT,
   DEFAULT_PAUSE_TSTATES,
-  HEADER_PILOT_COUNT,
-  PILOT_PULSE,
-  SYNC1_PULSE,
-  SYNC2_PULSE,
-  appendPilotSyncData,
+  appendStandardRomBlock,
+  appendTapePause,
   type TapePulseSequence,
 } from "./tapePulse.js";
 
@@ -25,22 +19,8 @@ export function parseTap(bytes: Uint8Array): TapePulseSequence {
     const block = bytes.subarray(offset, offset + blockLength);
     offset += blockLength;
 
-    const flag = block[0] ?? 0;
-    level = appendPilotSyncData(pulses, block, level, {
-      pilotPulse: PILOT_PULSE,
-      pilotCount: flag < 128 ? HEADER_PILOT_COUNT : DATA_PILOT_COUNT,
-      sync1: SYNC1_PULSE,
-      sync2: SYNC2_PULSE,
-      bit0: BIT0_PULSE,
-      bit1: BIT1_PULSE,
-      usedBitsInLastByte: 8,
-    });
-    pulses.push({ level: 0, duration: DEFAULT_PAUSE_TSTATES, pause: true });
-    // The next block's pilot tone must start with a real edge out of the pause
-    // (matching the file's own initial level=1) — leaving level at 0 here would
-    // push the next pilot pulse at the same level as the pause, merging them into
-    // one flat segment and silently dropping the pilot tone's first transition.
-    level = 1;
+    level = appendStandardRomBlock(pulses, block, level);
+    level = appendTapePause(pulses, DEFAULT_PAUSE_TSTATES);
   }
 
   return pulses;

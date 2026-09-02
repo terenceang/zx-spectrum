@@ -1,3 +1,4 @@
+import { ROM_PAGE_SIZE, TOTAL_RAM_128K_BANKS } from "./constants.js";
 import type { MemoryDevice } from "./memoryDevice.js";
 
 /** 128K/+2 memory map: two paged 16K ROMs at 0x0000-0x3FFF, fixed RAM bank 5 at
@@ -10,14 +11,17 @@ import type { MemoryDevice } from "./memoryDevice.js";
  * Contention follows the physical RAM bank, not the address slot: odd-numbered
  * banks (1, 3, 5, 7) are contended regardless of where they're currently paged. */
 export class Memory128k implements MemoryDevice {
-  private readonly roms = [new Uint8Array(0x4000), new Uint8Array(0x4000)];
-  private readonly banks: Uint8Array[] = Array.from({ length: 8 }, () => new Uint8Array(0x4000));
+  private readonly roms = [new Uint8Array(ROM_PAGE_SIZE), new Uint8Array(ROM_PAGE_SIZE)];
+  private readonly banks: Uint8Array[] = Array.from(
+    { length: TOTAL_RAM_128K_BANKS },
+    () => new Uint8Array(ROM_PAGE_SIZE),
+  );
   private pagingRegister = 0;
   private pagingLocked = false;
 
   loadRom(index: 0 | 1, rom: Uint8Array): void {
-    if (rom.length !== 0x4000) {
-      throw new Error(`128K ROM ${index} must be exactly 16384 bytes, got ${rom.length}`);
+    if (rom.length !== ROM_PAGE_SIZE) {
+      throw new Error(`128K ROM ${index} must be exactly ${ROM_PAGE_SIZE} bytes, got ${rom.length}`);
     }
     this.roms[index]!.set(rom);
   }
@@ -86,7 +90,7 @@ export class Memory128k implements MemoryDevice {
   /** Direct write into a specific physical RAM bank (0-7), bypassing paging —
    * used by snapshot loaders, which know exactly which bank each block belongs to. */
   pokeBank(bankIndex: number, data: Uint8Array): void {
-    this.banks[bankIndex]!.set(data.subarray(0, 0x4000));
+    this.banks[bankIndex]!.set(data.subarray(0, ROM_PAGE_SIZE));
   }
 
   /** The RAM bank the ULA currently reads for the display file + attributes: bank
