@@ -1,0 +1,3 @@
+## 2026-09-02 - Focus indicators for keyboard accessibility
+**Learning:** Found that the app lacks global focus indicators for its custom control elements (.btn, .control-select, .control-file-btn, .control-checkbox, .volume-slider), which significantly degrades keyboard navigation and accessibility.
+**Action:** Added targeted `:focus-visible` and `:focus-within` styles with an offset outline to provide clear visual feedback while navigating via keyboard, preserving the default mouse interactions.
