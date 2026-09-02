@@ -60,8 +60,12 @@ export class Machine128k implements Z80Bus {
     this.ula.beginFrame();
     this.tStates = 0;
     this.frameStartTotalT = this.totalTStates;
+    let steps = 0;
     while (this.tStates < this.frameTStateBudget) {
       this.cpu.step();
+      if (++steps > 100_000) {
+        throw new Error("runFrame: exceeded 100 000 steps — possible infinite loop");
+      }
     }
   }
 

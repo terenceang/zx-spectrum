@@ -73,6 +73,9 @@ export function parseSna(bytes: Uint8Array): ParsedSnaSnapshot {
   const spOffset = (sp - 0x4000) & 0xffff;
   let pc: number;
   if (bytes.length === SNA_48K_LENGTH) {
+    if (sp < 0x4000 || sp > 0xffff) {
+      throw new Error(`Invalid SP in .sna snapshot: 0x${sp.toString(16)} (must be in RAM range 0x4000-0xFFFF)`);
+    }
     const low = ram[spOffset]!;
     const high = ram[(spOffset + 1) & 0xffff]!;
     pc = (high << 8) | low;

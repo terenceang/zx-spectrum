@@ -91,7 +91,9 @@ export class Memory128k implements MemoryDevice {
 
   /** The RAM bank the ULA currently reads for the display file + attributes: bank
    * 7 if port 0x7FFD bit 3 is set, bank 5 otherwise. Matches Memory48k.screenBytes'
-   * convention of index 0 == address 0x4000. */
+   * convention of index 0 == address 0x4000.
+   * WARNING: Returns a mutable reference to the internal bank buffer. Callers must
+   * not write to the returned view — use write8/poke8/pokeBank for writes. */
   get screenBytes(): Uint8Array {
     return this.banks[(this.pagingRegister & 0x08) !== 0 ? 7 : 5]!;
   }

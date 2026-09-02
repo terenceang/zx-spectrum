@@ -8,22 +8,19 @@ import type { MachineModel } from "../../worker/src/protocol.js";
 import { AudioSink } from "./audio/audioSink.js";
 import { CAPS_SHIFT, KEY_MAP, SYMBOL_CHAR_MAP, SYMBOL_SHIFT } from "./input/keyMapping.js";
 import { Display } from "./ui/display.js";
+import { loadSessionMedia, saveSessionMedia } from "./ui/sessionStore.js";
 import {
-  loadLastModel,
-  loadSessionMedia,
-  loadSessionRom,
-  saveLastModel,
-  saveSessionMedia,
-  saveSessionRom,
-} from "./ui/sessionStore.js";
+  loadRom as loadRomFromStorage,
+  saveRom as saveRomToStorage,
+  loadLastModel as loadLastModelFromStorage,
+} from "./ui/romStorage.js";
 import { EmulatorClient } from "./worker-client.js";
+import { base64ToArrayBuffer } from "./utils/base64.js";
 
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
 const normalKeyboardToggle = document.getElementById("normal-keyboard-toggle") as HTMLInputElement;
 const tapeSoundToggle = document.getElementById("tape-sound-toggle") as HTMLInputElement | null;
-const romInput = document.getElementById("rom-input") as HTMLInputElement;
-const romFileText = document.getElementById("rom-file-text") as HTMLSpanElement | null;
 const snapshotInput = document.getElementById("snapshot-input") as HTMLInputElement;
 const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElement | null;
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
@@ -35,6 +32,17 @@ const volumeIcon = document.getElementById("volume-icon") as SVGElement | null;
 const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement | null;
 const volumeValue = document.getElementById("volume-value") as HTMLSpanElement | null;
 const status = document.getElementById("status") as HTMLDivElement;
+
+// Setup modal elements
+const setupModal = document.getElementById("setup-modal") as HTMLDivElement;
+const modalModelSelect = document.getElementById("modal-model-select") as HTMLSelectElement;
+const modalRomInput = document.getElementById("modal-rom-input") as HTMLInputElement;
+const modalRomText = document.getElementById("modal-rom-text") as HTMLSpanElement;
+const modalStartBtn = document.getElementById("modal-start-btn") as HTMLButtonElement;
+const modalError = document.getElementById("modal-error") as HTMLDivElement;
+
+let modalRomData: ArrayBuffer | null = null;
+let modalRomFilename = "";
 
 const savedVolume = parseFloat(localStorage.getItem("zx_spectrum_volume") ?? "0.5");
 const savedMuted = localStorage.getItem("zx_spectrum_muted") === "true";
@@ -166,30 +174,80 @@ async function ensureAudioStarted(): Promise<void> {
   await audio.resume();
 }
 
-function updateModelPrompt(): void {
-  romLoaded = false;
-  romInput.value = "";
+function showSetupModal(): void {
+  setupModal.style.display = "flex";
+  modalRomData = null;
+  modalRomFilename = "";
+  modalRomInput.value = "";
+  modalRomText.textContent = "Choose ROM file(s)…";
+  modalStartBtn.disabled = true;
+  modalError.style.display = "none";
   const model = currentModel();
-  if (romFileText) romFileText.textContent = "Choose ROM…";
-  if (mediaFileText) mediaFileText.textContent = "Insert Tape…";
-  const hint = model === "48k" ? "a 48K ROM file" : "both 128K ROM files (128-0.rom, 128-1.rom)";
-  status.textContent = `Load ${hint} to begin.`;
+  modalModelSelect.value = model;
+}
+
+function hideSetupModal(): void {
+  setupModal.style.display = "none";
+}
+
+function updateModalStartBtn(): void {
+  modalStartBtn.disabled = modalRomData === null;
+}
+
+function validateRomFiles(
+  model: string,
+  files: File[],
+): { ok: boolean; data?: ArrayBuffer; error?: string } {
+  if (model === "48k") {
+    if (files.length !== 1) {
+      return { ok: false, error: "48K requires exactly one ROM file." };
+    }
+    if (files[0]!.size !== 0x4000) {
+      return {
+        ok: false,
+        error: `Invalid 48K ROM size: ${files[0]!.size} bytes (expected 16384).`,
+      };
+    }
+    return { ok: true };
+  } else {
+    if (files.length !== 2) {
+      return { ok: false, error: "128K requires exactly two ROM files (128-0.rom, 128-1.rom)." };
+    }
+    const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
+    if (sorted[0]!.size !== 0x4000 || sorted[1]!.size !== 0x4000) {
+      return { ok: false, error: `Invalid 128K ROM size (each must be 16384 bytes).` };
+    }
+    return { ok: true };
+  }
+}
+
+async function readRomFiles(model: string, files: File[]): Promise<ArrayBuffer> {
+  if (model === "48k") {
+    return files[0]!.arrayBuffer();
+  } else {
+    const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
+    const [rom0, rom1] = await Promise.all(sorted.map((f) => f.arrayBuffer()));
+    if (!rom0 || !rom1) throw new Error("Failed to read ROM files");
+    const combined = new Uint8Array(rom0.byteLength + rom1.byteLength);
+    combined.set(new Uint8Array(rom0), 0);
+    combined.set(new Uint8Array(rom1), rom0.byteLength);
+    return combined.buffer;
+  }
 }
 
 async function restoreSession(): Promise<void> {
-  const lastModel = await loadLastModel();
-  if (lastModel && (lastModel === "48k" || lastModel === "128k")) {
+  const lastModel = loadLastModelFromStorage();
+  if (lastModel) {
     modelSelect.value = lastModel;
   }
   const model = currentModel();
-  const storedRom = await loadSessionRom(model);
+  const storedRom = loadRomFromStorage(model);
 
   if (storedRom) {
     client.loadRom(model, storedRom.data.slice(0));
     client.reset();
     client.resume();
     romLoaded = true;
-    if (romFileText) romFileText.textContent = storedRom.filename;
 
     const storedMedia = await loadSessionMedia();
     if (storedMedia) {
@@ -205,7 +263,7 @@ async function restoreSession(): Promise<void> {
     }
     await ensureAudioStarted();
   } else {
-    updateModelPrompt();
+    showSetupModal();
   }
 }
 
@@ -215,42 +273,25 @@ async function loadRomFiles(files: File[]): Promise<void> {
 
   if (romLoaded) {
     const ok = window.confirm("A ROM is already loaded. Replace it and reset the emulator?");
-    if (!ok) {
-      romInput.value = "";
-      return;
-    }
+    if (!ok) return;
   }
 
-  let data: ArrayBuffer;
-  let filename = "";
-
-  if (model === "48k") {
-    if (files.length !== 1) {
-      status.textContent = "48K needs exactly one ROM file.";
-      romInput.value = "";
-      return;
-    }
-    data = await files[0]!.arrayBuffer();
-    filename = files[0]!.name;
-    if (romFileText) romFileText.textContent = filename;
-  } else {
-    if (files.length !== 2) {
-      status.textContent = "128K needs exactly two ROM files (128-0.rom, 128-1.rom).";
-      romInput.value = "";
-      return;
-    }
-    const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
-    const [rom0, rom1] = await Promise.all(sorted.map((f) => f.arrayBuffer()));
-    const combined = new Uint8Array(rom0!.byteLength + rom1!.byteLength);
-    combined.set(new Uint8Array(rom0!), 0);
-    combined.set(new Uint8Array(rom1!), rom0!.byteLength);
-    data = combined.buffer;
-    filename = sorted.map((f) => f.name).join(", ");
-    if (romFileText) romFileText.textContent = filename;
+  const validation = validateRomFiles(model, files);
+  if (!validation.ok) {
+    status.textContent = validation.error!;
+    return;
   }
 
-  await saveSessionRom({ model, filename, data: data.slice(0) });
-  await saveLastModel(model);
+  const data = await readRomFiles(model, files);
+  const filename =
+    model === "48k"
+      ? files[0]!.name
+      : [...files]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((f) => f.name)
+          .join(", ");
+
+  saveRomToStorage({ model, filename, data: data.slice(0) });
 
   client.loadRom(model, data);
   client.reset();
@@ -294,25 +335,33 @@ async function loadMediaFile(file: File): Promise<void> {
   await ensureAudioStarted();
 }
 
-romInput.addEventListener("change", async () => {
-  const files = Array.from(romInput.files ?? []);
-  await loadRomFiles(files);
-});
+let previousModel: MachineModel = currentModel();
+let rafHandle = 0;
+let frameLoopRunning = false;
 
 modelSelect.addEventListener("change", async () => {
   const model = currentModel();
-  await saveLastModel(model);
-  const storedRom = await loadSessionRom(model);
+
+  if (romLoaded) {
+    const ok = window.confirm(`Switch to ${model.toUpperCase()}? This will reset the emulator.`);
+    if (!ok) {
+      modelSelect.value = previousModel;
+      return;
+    }
+  }
+
+  previousModel = model;
+  localStorage.setItem("zx_spectrum_last_model", model);
+  const storedRom = loadRomFromStorage(model);
   if (storedRom) {
     client.loadRom(model, storedRom.data.slice(0));
     client.reset();
     client.resume();
     romLoaded = true;
-    if (romFileText) romFileText.textContent = storedRom.filename;
     status.textContent = `${model.toUpperCase()} ROM loaded from cache (${storedRom.filename}).`;
     await ensureAudioStarted();
   } else {
-    updateModelPrompt();
+    showSetupModal();
   }
 });
 
@@ -337,14 +386,83 @@ document.body.addEventListener("drop", async (e) => {
   }
 });
 
+// Setup modal event listeners
+modalModelSelect.addEventListener("change", () => {
+  modalRomData = null;
+  modalRomFilename = "";
+  modalRomInput.value = "";
+  modalRomText.textContent = "Choose ROM file(s)…";
+  modalError.style.display = "none";
+  updateModalStartBtn();
+});
+
+modalRomInput.addEventListener("change", async () => {
+  const files = Array.from(modalRomInput.files ?? []);
+  if (files.length === 0) {
+    modalRomData = null;
+    modalRomFilename = "";
+    modalRomText.textContent = "Choose ROM file(s)…";
+    modalError.style.display = "none";
+    updateModalStartBtn();
+    return;
+  }
+
+  const model = modalModelSelect.value;
+  const validation = validateRomFiles(model, files);
+  if (!validation.ok) {
+    modalRomData = null;
+    modalRomFilename = "";
+    modalRomText.textContent = "Choose ROM file(s)…";
+    modalError.textContent = validation.error!;
+    modalError.style.display = "block";
+    updateModalStartBtn();
+    return;
+  }
+
+  modalError.style.display = "none";
+  const data = await readRomFiles(model, files);
+  modalRomData = data;
+  modalRomFilename =
+    model === "48k"
+      ? files[0]!.name
+      : [...files]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((f) => f.name)
+          .join(", ");
+  modalRomText.textContent = modalRomFilename;
+  updateModalStartBtn();
+});
+
+modalStartBtn.addEventListener("click", async () => {
+  if (!modalRomData) return;
+  const model = modalModelSelect.value as MachineModel;
+
+  modelSelect.value = model;
+  localStorage.setItem("zx_spectrum_last_model", model);
+  saveRomToStorage({ model, filename: modalRomFilename, data: modalRomData.slice(0) });
+
+  client.loadRom(model, modalRomData);
+  client.reset();
+  client.resume();
+  romLoaded = true;
+  paused = false;
+  updatePauseUi();
+  status.textContent = `${model.toUpperCase()} ROM loaded and reset. Load a snapshot or tape to play.`;
+
+  hideSetupModal();
+  await ensureAudioStarted();
+});
+
 pauseBtn.addEventListener("click", () => {
   paused = !paused;
   if (paused) {
     client.pause();
     audio.suspend();
+    cancelAnimationFrame(rafHandle);
   } else {
     client.resume();
     audio.resume();
+    rafHandle = requestAnimationFrame(frameLoop);
   }
   updatePauseUi();
 });
@@ -371,6 +489,12 @@ tapeEjectBtn?.addEventListener("click", async () => {
 window.addEventListener("pointerdown", () => {
   void ensureAudioStarted();
 });
+window.addEventListener("click", () => {
+  void ensureAudioStarted();
+});
+window.addEventListener("touchstart", () => {
+  void ensureAudioStarted();
+}, { passive: true });
 
 // PC keyboard -> Matrix mapping
 const activeSymbolKeys = new Map<string, { row: number; bit: number }>();
@@ -413,11 +537,14 @@ function frameLoop(): void {
   const frame = client.pollFrame();
   if (frame) display.render(frame);
   audio.pumpFallbackAudio(client);
-  requestAnimationFrame(frameLoop);
+  if (!paused) rafHandle = requestAnimationFrame(frameLoop);
 }
 
 client.onReady = () => {
-  requestAnimationFrame(frameLoop);
+  if (!frameLoopRunning) {
+    frameLoopRunning = true;
+    rafHandle = requestAnimationFrame(frameLoop);
+  }
 };
 
 void restoreSession();
@@ -431,13 +558,6 @@ const mcpIndicatorText = document.getElementById("mcp-indicator-text") as HTMLSp
 function setMcpConnected(connected: boolean): void {
   mcpIndicator.classList.toggle("connected", connected);
   mcpIndicatorText.textContent = `MCP: ${connected ? "connected" : "offline"} (${mcpInstanceId})`;
-}
-
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
 }
 
 async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
@@ -467,9 +587,15 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
     case "reset":
       client.reset();
       return null;
-    case "keyEvent":
-      client.sendKey(message.row, message.bit, message.down);
+    case "keyEvent": {
+      const row = message.row;
+      const bit = message.bit;
+      if (row < 0 || row > 7 || bit < 0 || bit > 4) {
+        throw new Error(`Invalid keyEvent: row ${row} bit ${bit} (expected row 0-7, bit 0-4)`);
+      }
+      client.sendKey(row, bit, message.down);
       return null;
+    }
     case "typeText":
       await typeText(message.text);
       return null;
@@ -483,7 +609,15 @@ function sleep(ms: number): Promise<void> {
 async function typeText(text: string): Promise<void> {
   for (const ch of text) {
     const code =
-      ch === "\n" ? "Enter" : ch === " " ? "Space" : /[a-zA-Z]/.test(ch) ? `Key${ch.toUpperCase()}` : /[0-9]/.test(ch) ? `Digit${ch}` : null;
+      ch === "\n"
+        ? "Enter"
+        : ch === " "
+          ? "Space"
+          : /[a-zA-Z]/.test(ch)
+            ? `Key${ch.toUpperCase()}`
+            : /[0-9]/.test(ch)
+              ? `Digit${ch}`
+              : null;
     const plainKeys = code ? KEY_MAP[code] : undefined;
     if (plainKeys) {
       for (const { row, bit } of plainKeys) client.sendKey(row, bit, true);
@@ -504,24 +638,40 @@ async function typeText(text: string): Promise<void> {
   }
 }
 
+let mcpReconnectDelay = 2000;
+const mcpReconnectMaxDelay = 30000;
+
 function connectMcpBridge(): void {
   const ws = new WebSocket(`ws://localhost:${MCP_BRIDGE_PORT}`);
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: "hello", instanceId: mcpInstanceId }));
     setMcpConnected(true);
+    mcpReconnectDelay = 2000;
   };
   ws.onclose = () => {
     setMcpConnected(false);
-    setTimeout(connectMcpBridge, 2000);
+    setTimeout(connectMcpBridge, mcpReconnectDelay);
+    mcpReconnectDelay = Math.min(mcpReconnectDelay * 2, mcpReconnectMaxDelay);
   };
-  ws.onmessage = async (event) => {
+  // Commands (e.g. typeText's timed key taps, loadRom) mutate shared emulator state,
+  // so handle them strictly one-at-a-time — later messages wait on earlier ones.
+  let mcpCommandTail: Promise<void> = Promise.resolve();
+  ws.onmessage = (event) => {
     const message = JSON.parse(event.data as string) as McpBridgeCommand;
-    try {
-      const result = await handleMcpCommand(message);
-      ws.send(JSON.stringify({ reqId: message.reqId, ok: true, result }));
-    } catch (err) {
-      ws.send(JSON.stringify({ reqId: message.reqId, ok: false, error: err instanceof Error ? err.message : String(err) }));
-    }
+    mcpCommandTail = mcpCommandTail.then(() => handleMcpCommand(message)).then(
+      (result) => {
+        ws.send(JSON.stringify({ reqId: message.reqId, ok: true, result }));
+      },
+      (err) => {
+        ws.send(
+          JSON.stringify({
+            reqId: message.reqId,
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      },
+    );
   };
 }
 

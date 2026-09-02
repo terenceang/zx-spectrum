@@ -5,6 +5,7 @@
 export interface TapePulse {
   level: 0 | 1;
   duration: number; // T-states
+  pause?: boolean;
 }
 export type TapePulseSequence = TapePulse[];
 

@@ -14,6 +14,8 @@ export class TapeEdgePlayer {
   private dcPrevIn = 0;
   private dcPrevOut = 0;
   private playing = false;
+  private lastReadT = 0;
+  private consecutiveReads = 0;
 
   load(pulses: TapePulseSequence): void {
     this.pulses = pulses;
@@ -29,12 +31,16 @@ export class TapeEdgePlayer {
     this.audioPulseStartT = atTState;
     this.dcPrevIn = 0;
     this.dcPrevOut = 0;
+    this.lastReadT = 0;
+    this.consecutiveReads = 0;
   }
 
   stop(): void {
     this.playing = false;
     this.cpuIndex = 0;
     this.audioIndex = 0;
+    this.lastReadT = 0;
+    this.consecutiveReads = 0;
   }
 
   isPlaying(): boolean {
@@ -43,13 +49,39 @@ export class TapeEdgePlayer {
 
   levelAt(tState: number): 0 | 1 {
     if (!this.playing) return 0;
-    while (
-      this.cpuIndex < this.pulses.length &&
-      tState - this.cpuPulseStartT >= this.pulses[this.cpuIndex]!.duration
-    ) {
-      this.cpuPulseStartT += this.pulses[this.cpuIndex]!.duration;
+
+    const dt = tState - this.lastReadT;
+    this.lastReadT = tState;
+    if (dt < 500) {
+      this.consecutiveReads++;
+    } else {
+      this.consecutiveReads = 1;
+    }
+
+    while (this.cpuIndex < this.pulses.length) {
+      const pulse = this.pulses[this.cpuIndex]!;
+      const elapsed = tState - this.cpuPulseStartT;
+
+      if (elapsed < pulse.duration) {
+        break;
+      }
+
+      if (pulse.pause) {
+        // The nominal pause duration has elapsed.
+        // If the CPU is not actively polling port 0xFE in a tape-loading loop
+        // (e.g. it is decompressing, running user code, or in a sporadic keyboard
+        // interrupt scan), hold the pause by shifting cpuPulseStartT forward so the
+        // next block's pilot tone is not consumed while the CPU isn't listening.
+        if (this.consecutiveReads < 2) {
+          this.cpuPulseStartT = tState - pulse.duration + 1;
+          break;
+        }
+      }
+
+      this.cpuPulseStartT += pulse.duration;
       this.cpuIndex++;
     }
+
     if (this.cpuIndex >= this.pulses.length) {
       this.playing = false;
       return 0;
@@ -74,6 +106,10 @@ export class TapeEdgePlayer {
         this.audioIndex < this.pulses.length &&
         sampleEndT - this.audioPulseStartT >= this.pulses[this.audioIndex]!.duration
       ) {
+        if (this.audioIndex >= this.cpuIndex && this.pulses[this.audioIndex]?.pause) {
+          this.audioPulseStartT = this.cpuPulseStartT;
+          break;
+        }
         this.audioPulseStartT += this.pulses[this.audioIndex]!.duration;
         this.audioIndex++;
       }

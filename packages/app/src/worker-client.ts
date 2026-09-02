@@ -36,6 +36,10 @@ export class EmulatorClient {
       type: "module",
     });
 
+    this.worker.onerror = (e) => {
+      this.onError?.(e.message || "Worker error");
+    };
+
     this.usesSharedMemory = typeof SharedArrayBuffer !== "undefined";
     let frameBuffer: SharedArrayBuffer | null = null;
     let audioBuffer: SharedArrayBuffer | null = null;

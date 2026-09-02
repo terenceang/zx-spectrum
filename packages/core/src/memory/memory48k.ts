@@ -14,6 +14,8 @@ export class Memory48k implements MemoryDevice {
     this.rom.set(rom);
   }
 
+  /** Loads RAM image (0x4000-0xFFFF). If shorter than 49152 bytes, the remainder
+   * is zero-filled. If longer, only the first 49152 bytes are used. */
   loadRam(ram: Uint8Array): void {
     this.ram.set(ram.subarray(0, 0xc000));
   }
@@ -45,7 +47,9 @@ export class Memory48k implements MemoryDevice {
   }
 
   /** Direct access to the display-file + attribute RAM (0x4000-0x5AFF) for the ULA
-   * renderer — avoids going through read8's bounds check per pixel. */
+   * renderer — avoids going through read8's bounds check per pixel.
+   * WARNING: Returns a mutable reference to the internal RAM buffer. Callers must
+   * not write to the returned view — use write8/poke8 for writes. */
   get screenBytes(): Uint8Array {
     return this.ram;
   }

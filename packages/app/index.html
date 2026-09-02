@@ -62,14 +62,6 @@
               </select>
             </div>
 
-            <div class="control-group">
-              <label class="control-file-btn" for="rom-input" title="Load custom ROM (.rom, .bin)">
-                <span>ROM:</span>
-                <span class="file-text" id="rom-file-text">Choose ROM…</span>
-                <input id="rom-input" type="file" accept=".rom,.bin" multiple />
-              </label>
-            </div>
-
             <button id="pause-btn" class="btn btn-icon" type="button" title="Pause emulation" aria-label="Pause/Resume">
               <svg class="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="6" y="4" width="4" height="16"></rect>
@@ -173,6 +165,42 @@
         <div>v0.2.0 · Terence Ang (<a href="https://terenceang.com" target="_blank" rel="noopener">motionfxdesign</a>)</div>
       </footer>
     </main>
+
+    <!-- Setup Modal -->
+    <div id="setup-modal" class="modal-overlay" style="display: none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 class="modal-title">ZX Spectrum</h2>
+          <p class="modal-subtitle">Select a machine and load a ROM to begin</p>
+        </div>
+        <div class="modal-body">
+          <div class="modal-field">
+            <label class="modal-label" for="modal-model-select">Machine</label>
+            <select id="modal-model-select" class="control-select">
+              <option value="48k" selected>48K</option>
+              <option value="128k">128K</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label class="modal-label">ROM File(s)</label>
+            <label class="modal-file-btn" for="modal-rom-input">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <span id="modal-rom-text">Choose ROM file(s)…</span>
+              <input id="modal-rom-input" type="file" accept=".rom,.bin" multiple />
+            </label>
+            <p class="modal-hint">48K: one ROM file · 128K: two ROM files (128-0.rom, 128-1.rom)</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="modal-start-btn" class="btn btn-accent" type="button" disabled>Start Emulator</button>
+        </div>
+        <div id="modal-error" class="modal-error" style="display: none;"></div>
+      </div>
+    </div>
 
     <!-- Main Module Script -->
     <script type="module" src="/src/main.ts"></script>

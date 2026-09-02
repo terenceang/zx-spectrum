@@ -1,13 +1,4 @@
-// Plain `?url` just copies the file as a raw asset without running it through
-// esbuild first — harmless for a `.js` source, but wrong for `.ts`: for a `.ts`
-// file it (a) guesses the MIME type from the extension as `video/mp2t` (MPEG-TS!)
-// and (b) ships un-transpiled TypeScript syntax the browser can't parse.
-// `?worker&url` instead routes the file through Vite's worker bundling pipeline —
-// which does transpile/bundle it as a standalone ES module — and hands back the
-// URL of the *built* output. AudioWorkletProcessor modules are structurally the
-// same shape as a worker module (self-contained, no HMR runtime needed), so this
-// pipeline works for them too even though they aren't literally a Worker.
-import beeperProcessorUrl from "./beeper-processor.ts?worker&url";
+const beeperProcessorUrl = `${import.meta.env.BASE_URL}beeper-processor.js`;
 import type { EmulatorClient } from "../worker-client.js";
 
 /** Wires up beeper playback for an EmulatorClient. SharedArrayBuffer path: an
@@ -22,6 +13,7 @@ export class AudioSink {
   private workletNode: AudioWorkletNode | null = null;
   private gainNode: GainNode | null = null;
   private nextFallbackStartTime = 0;
+  private readonly fallbackBufferPool: { buffer: AudioBuffer; releaseTime: number }[] = [];
   private volume: number;
   private muted: boolean;
 
@@ -46,33 +38,64 @@ export class AudioSink {
     }
 
     if (client.usesSharedMemory && client.audioBuffer && !this.workletNode) {
-      await this.audioContext.audioWorklet.addModule(beeperProcessorUrl);
-      this.workletNode = new AudioWorkletNode(this.audioContext, "beeper-processor");
-      this.workletNode.port.postMessage({
-        buffer: client.audioBuffer,
-        capacity: client.audioCapacitySamples,
-      });
-      this.workletNode.connect(this.gainNode!);
+      try {
+        await this.audioContext.audioWorklet.addModule(beeperProcessorUrl);
+        this.workletNode = new AudioWorkletNode(this.audioContext, "beeper-processor");
+        this.workletNode.port.postMessage({
+          buffer: client.audioBuffer,
+          capacity: client.audioCapacitySamples,
+        });
+        this.workletNode.connect(this.gainNode!);
+      } catch (err) {
+        console.error("Failed to load AudioWorklet module:", err);
+      }
     }
   }
 
   /** Call once per rAF tick when running in fallback mode (usesSharedMemory ===
-   * false); no-op otherwise. */
+   * false); no-op otherwise. AudioBufferSourceNodes are single-use by spec, but the
+   * underlying AudioBuffers are pooled and reused once their scheduled playback has
+   * finished, to keep per-frame GC churn low on this rarely-exercised path. */
   pumpFallbackAudio(client: EmulatorClient): void {
     if (!this.audioContext || !this.gainNode || client.usesSharedMemory) return;
     const samples = client.takeFallbackAudio();
     if (!samples || samples.length === 0) return;
 
-    const buffer = this.audioContext.createBuffer(1, samples.length, this.audioContext.sampleRate);
+    const now = this.audioContext.currentTime;
+    const buffer = this.acquireFallbackBuffer(samples.length, now);
     buffer.getChannelData(0).set(samples);
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gainNode);
 
-    const now = this.audioContext.currentTime;
     const startTime = Math.max(now, this.nextFallbackStartTime);
     source.start(startTime);
     this.nextFallbackStartTime = startTime + buffer.duration;
+    this.releaseFallbackBuffer(buffer, startTime + buffer.duration);
+  }
+
+  /** Finds a pooled buffer whose last scheduled playback has fully finished, or
+   * allocates a fresh one. A buffer must never be rewritten while a scheduled or
+   * playing source still references it, hence the releaseTime watermark. */
+  private acquireFallbackBuffer(length: number, now: number): AudioBuffer {
+    for (let i = 0; i < this.fallbackBufferPool.length; i++) {
+      const entry = this.fallbackBufferPool[i]!;
+      if (entry.releaseTime <= now) {
+        if (entry.buffer.length === length) return entry.buffer;
+        this.fallbackBufferPool.splice(i, 1);
+        break;
+      }
+    }
+    return this.audioContext!.createBuffer(1, length, this.audioContext!.sampleRate);
+  }
+
+  private releaseFallbackBuffer(buffer: AudioBuffer, releaseTime: number): void {
+    const existing = this.fallbackBufferPool.find((e) => e.buffer === buffer);
+    if (existing) {
+      existing.releaseTime = releaseTime;
+    } else {
+      this.fallbackBufferPool.push({ buffer, releaseTime });
+    }
   }
 
   setVolume(volume: number): void {
@@ -114,5 +137,9 @@ export class AudioSink {
         // Autoplay policy may block until user interaction
       }
     }
+  }
+
+  getState(): AudioContextState | "uninitialized" {
+    return this.audioContext?.state ?? "uninitialized";
   }
 }

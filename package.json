@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=@zx-spectrum/app",
+    "dev": "npm run build --workspace=@zx-spectrum/mcp-server && node packages/mcp-server/dist/index.js & npm run dev --workspace=@zx-spectrum/app",
     "build": "npm run build --workspace=@zx-spectrum/core && npm run build --workspace=@zx-spectrum/worker && npm run build --workspace=@zx-spectrum/app && npm run build --workspace=@zx-spectrum/mcp-server",
     "test": "vitest run",
     "test:watch": "vitest",

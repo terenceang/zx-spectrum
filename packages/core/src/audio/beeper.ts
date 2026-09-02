@@ -1,7 +1,11 @@
 /** Records beeper output-level edges (T-state, level) during a frame and renders
  * them to a PCM sample buffer on demand. Kept separate from UlaEngine so it's
  * independently testable and so the machine's audio mixdown step can combine it
- * with the AY chip's output (128K/+3) without either chip knowing about the other. */
+ * with the AY chip's output (128K/+3) without either chip knowing about the other.
+ *
+ * NOTE: edges is cleared per frame (renderFrame), so it doesn't leak across frames.
+ * Programs that toggle the beeper every T-state can create thousands of objects per
+ * frame, causing minor GC pressure. A flat array would reduce this but adds complexity. */
 export class Beeper {
   private edges: { tState: number; level: 0 | 1 }[] = [];
   private currentLevel: 0 | 1 = 0;

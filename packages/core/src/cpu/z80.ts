@@ -75,6 +75,16 @@ export class Z80 {
   }
 
   setState(state: CpuState): void {
+    if (state.registerBytes.length < REGISTERS_BYTE_LENGTH) {
+      throw new Error(
+        `setState: registerBytes too short (${state.registerBytes.length}, need ${REGISTERS_BYTE_LENGTH})`,
+      );
+    }
+    if (state.registerWords.length < WORDS_LENGTH) {
+      throw new Error(
+        `setState: registerWords too short (${state.registerWords.length}, need ${WORDS_LENGTH})`,
+      );
+    }
     this.regs.bytes.set(state.registerBytes.subarray(0, REGISTERS_BYTE_LENGTH));
     this.regs.words.set(state.registerWords.subarray(0, WORDS_LENGTH));
     this.iff1 = state.iff1;

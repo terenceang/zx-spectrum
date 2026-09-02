@@ -5,7 +5,10 @@ export type { BridgeCommand };
 export { BRIDGE_PORT };
 
 const instances = new Map<string, WebSocket>();
-const pending = new Map<string, { resolve: (value: unknown) => void; reject: (reason: Error) => void }>();
+const pending = new Map<
+  string,
+  { resolve: (value: unknown) => void; reject: (reason: Error) => void; ws: WebSocket }
+>();
 let reqCounter = 0;
 
 const wss = new WebSocketServer({ port: BRIDGE_PORT });
@@ -36,7 +39,16 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => {
-    if (instanceId) instances.delete(instanceId);
+    if (instanceId) {
+      instances.delete(instanceId);
+      // Clean up any pending requests that were awaiting a reply over this socket.
+      for (const [reqId, entry] of pending) {
+        if (entry.ws === ws) {
+          entry.reject(new Error(`Instance "${instanceId}" disconnected before responding.`));
+          pending.delete(reqId);
+        }
+      }
+    }
   });
 });
 
@@ -77,6 +89,7 @@ export function callInstance(
       reject(new Error(`Instance "${instanceId}" did not respond within 5s.`));
     }, 5000);
     pending.set(reqId, {
+      ws,
       resolve: (v) => {
         clearTimeout(timer);
         resolve(v);

@@ -71,8 +71,7 @@ function tick(): void {
     }
   } catch (err) {
     post({ type: "error", message: err instanceof Error ? err.message : String(err) });
-    if (timer !== null) clearInterval(timer);
-    running = false;
+    stop();
   }
 }
 

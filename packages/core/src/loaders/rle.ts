@@ -4,27 +4,30 @@
  * an explicit length instead and never carry the sentinel — pass `sentinel: true`
  * only for the former. */
 export function decompressZ80Rle(data: Uint8Array, sentinel: boolean): Uint8Array {
-  const out: number[] = [];
+  // Upper bound: at most data.length bytes output (when no RLE runs exist).
+  const out = new Uint8Array(data.length);
+  let outLen = 0;
   let i = 0;
   while (i < data.length) {
     if (
       sentinel &&
       data[i] === 0x00 &&
+      i + 3 < data.length &&
       data[i + 1] === 0xed &&
       data[i + 2] === 0xed &&
       data[i + 3] === 0x00
     ) {
       break;
     }
-    if (data[i] === 0xed && data[i + 1] === 0xed && i + 3 < data.length) {
+    if (data[i] === 0xed && i + 3 < data.length && data[i + 1] === 0xed) {
       const count = data[i + 2]!;
       const value = data[i + 3]!;
-      for (let n = 0; n < count; n++) out.push(value);
+      for (let n = 0; n < count; n++) out[outLen++] = value;
       i += 4;
     } else {
-      out.push(data[i]!);
+      out[outLen++] = data[i]!;
       i += 1;
     }
   }
-  return Uint8Array.from(out);
+  return outLen === out.length ? out : out.subarray(0, outLen);
 }

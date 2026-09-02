@@ -37,11 +37,13 @@ export class FrameRingReader {
       const seqBefore = Atomics.load(this.header, 0);
       if (seqBefore === 0) return null; // never written
       if (seqBefore % 2 !== 0) continue; // mid-write, retry
-      const width = Atomics.load(this.header, 1);
-      const height = Atomics.load(this.header, 2);
-      const out = this.pixels.slice(0, width * height);
+      const w = Atomics.load(this.header, 1);
+      const h = Atomics.load(this.header, 2);
+      const pixelCount = w * h;
+      if (pixelCount > this.pixels.length) continue; // corrupt header, retry
+      const out = this.pixels.slice(0, pixelCount);
       const seqAfter = Atomics.load(this.header, 0);
-      if (seqAfter === seqBefore) return { pixels: out, width, height };
+      if (seqAfter === seqBefore) return { pixels: out, width: w, height: h };
     }
     return null; // gave up after a handful of torn reads — next rAF tick tries again
   }
@@ -49,7 +51,13 @@ export class FrameRingReader {
 
 /** Lock-free single-producer/single-consumer ring buffer for PCM audio samples
  * (Float32, in [-1, 1]), shared between the emulation worker (producer) and an
- * AudioWorkletProcessor on the main thread's realtime audio thread (consumer). */
+ * AudioWorkletProcessor on the main thread's realtime audio thread (consumer).
+ *
+ * NOTE: Atomics.load on individual header words does not constitute a full memory
+ * fence between readIndex and writeIndex. The SPSC pattern means the ring won't
+ * corrupt, but `available` can briefly be stale, causing rare audio glitches at
+ * 44.1kHz — acceptable for audio. A proper fix would use Atomics.fence() (TC39
+ * proposal) or Atomics.exchange() to order the two reads. */
 export class AudioRing {
   private readonly header: Int32Array;
   private readonly samples: Float32Array;

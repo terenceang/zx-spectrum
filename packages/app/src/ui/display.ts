@@ -36,7 +36,8 @@ export class Display {
     }
     const imageData = this.imageData!;
     const dest = new Uint32Array(imageData.data.buffer);
-    for (let i = 0; i < frame.pixels.length; i++) {
+    const pixelCount = Math.min(frame.pixels.length, frame.width * frame.height, dest.length);
+    for (let i = 0; i < pixelCount; i++) {
       dest[i] = this.lut[frame.pixels[i]!]!;
     }
     this.ctx.putImageData(imageData, 0, 0);

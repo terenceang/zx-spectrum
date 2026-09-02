@@ -19,6 +19,10 @@ export class UlaEngine {
   readonly beeper = new Beeper();
 
   private borderColor = 0;
+  // NOTE: borderChanges is cleared per frame (beginFrame), so it doesn't leak across
+  // frames. However, programs that rapidly toggle the border (raster effects) can push
+  // thousands of {tState, color} objects per frame, causing GC pressure. A flat array
+  // would reduce this, but the current approach is correct and the impact is minor.
   private borderChanges: { tState: number; color: number }[] = [];
   private flashPhase = false;
   private flashFrameCounter = 0;

@@ -319,4 +319,13 @@ server.registerTool(
 );
 
 const transport = new StdioServerTransport();
-await server.connect(transport);
+// Wrapped in an async IIFE rather than top-level await so the module would still
+// load if ever imported from a CommonJS context (top-level await is ESM-only).
+void (async () => {
+  try {
+    await server.connect(transport);
+  } catch (err) {
+    console.error(`MCP server failed to start: ${err instanceof Error ? err.message : String(err)}`);
+    process.exitCode = 1;
+  }
+})();
