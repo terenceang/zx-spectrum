@@ -36,7 +36,7 @@ export type { ParsedZ80Snapshot, Z80HardwareMode } from "./loaders/z80.js";
 export { applySnapshotTo48k, applySnapshotTo128k } from "./loaders/apply.js";
 export { parseTap } from "./loaders/tap.js";
 export { parseTzx } from "./loaders/tzx.js";
-export type { TapePulse, TapePulseSequence } from "./loaders/tapePulse.js";
+export type { TapeBlock, TapePulse, TapePulseSequence } from "./loaders/tapePulse.js";
 export { TapeEdgePlayer } from "./loaders/tapePlayer.js";
 
 export { MCP_BRIDGE_PORT, SNAPSHOT_EXTENSIONS, TAPE_EXTENSIONS } from "./io/bridgeProtocol.js";

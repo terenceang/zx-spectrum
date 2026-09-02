@@ -12,6 +12,7 @@ export type HostToWorkerMessage =
   | { type: "playTape" }
   | { type: "stopTape" }
   | { type: "setTapeSound"; enabled: boolean }
+  | { type: "setFastTapeLoad"; enabled: boolean }
   | { type: "keyEvent"; row: number; bit: number; down: boolean }
   | { type: "pause" }
   | { type: "resume" }

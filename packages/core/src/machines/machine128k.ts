@@ -18,6 +18,10 @@ export class Machine128k extends BaseMachine<Memory128k> {
     this.memory.loadRom(1, rom1);
   }
 
+  protected isTapeTrapActive(): boolean {
+    return this.cpu.regs.pc === 0x0556 && this.memory.romBank === 1;
+  }
+
   override reset(): void {
     super.reset();
     this.ay.reset();

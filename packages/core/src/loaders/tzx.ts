@@ -3,6 +3,7 @@ import {
   appendPilotSyncData,
   appendStandardRomBlock,
   appendTapePause,
+  type TapeBlock,
   type TapePulseSequence,
 } from "./tapePulse.js";
 
@@ -20,6 +21,8 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
   }
 
   const pulses: TapePulseSequence = [];
+  const blocks: TapeBlock[] = [];
+  Object.defineProperty(pulses, "blocks", { value: blocks, writable: true, enumerable: false, configurable: true });
   let level: 0 | 1 = 1;
   let offset = 10; // 7-byte signature + 0x1A + 2-byte version
 
@@ -38,8 +41,15 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         const length = u16(offset + 2);
         const data = bytes.subarray(offset + 4, offset + 4 + length);
         offset += 4 + length;
+        const pulseStartIndex = pulses.length;
         level = appendStandardRomBlock(pulses, data, level);
         level = appendTapePause(pulses, pauseMs * TSTATES_PER_MS);
+        const pulseEndIndex = pulses.length;
+        blocks.push({
+          data,
+          pulseStartIndex,
+          pulseEndIndex,
+        });
         break;
       }
       case 0x11: {
@@ -56,6 +66,7 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
         const length = u24(offset + 15);
         const data = bytes.subarray(offset + 18, offset + 18 + length);
         offset += 18 + length;
+        const pulseStartIndex = pulses.length;
         level = appendPilotSyncData(pulses, data, level, {
           pilotPulse,
           pilotCount,
@@ -66,6 +77,12 @@ export function parseTzx(bytes: Uint8Array): TapePulseSequence {
           usedBitsInLastByte,
         });
         level = appendTapePause(pulses, pauseMs * TSTATES_PER_MS);
+        const pulseEndIndex = pulses.length;
+        blocks.push({
+          data,
+          pulseStartIndex,
+          pulseEndIndex,
+        });
         break;
       }
       case 0x12: {

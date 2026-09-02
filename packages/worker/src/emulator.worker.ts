@@ -144,6 +144,11 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       machine128k.tapeSoundEnabled = message.enabled;
       break;
     }
+    case "setFastTapeLoad": {
+      machine48k.fastTapeLoad = message.enabled;
+      machine128k.fastTapeLoad = message.enabled;
+      break;
+    }
     case "keyEvent": {
       currentMachine().keyboard.setKey(message.row, message.bit, message.down);
       break;

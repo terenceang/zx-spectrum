@@ -38,7 +38,7 @@ export class Memory128k implements MemoryDevice {
     this.pagingLocked = false;
   }
 
-  private get romBank(): 0 | 1 {
+  get romBank(): 0 | 1 {
     return (this.pagingRegister & 0x10) !== 0 ? 1 : 0;
   }
 

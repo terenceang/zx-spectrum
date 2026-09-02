@@ -1,4 +1,6 @@
 import type { MemoryAccessTag, Z80Bus } from "../cpu/bus.js";
+import { Flag } from "../cpu/flags.js";
+import { RegIndex } from "../cpu/registers.js";
 import { Z80 } from "../cpu/z80.js";
 import { KeyboardState } from "../io/keyboard.js";
 import { TapeEdgePlayer } from "../loaders/tapePlayer.js";
@@ -15,6 +17,7 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
   readonly keyboard = new KeyboardState();
   readonly tape = new TapeEdgePlayer();
   tapeSoundEnabled = true;
+  fastTapeLoad = false;
 
   abstract readonly memory: M;
   abstract readonly ula: UlaEngine;
@@ -48,13 +51,101 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
     this.tStates = 0;
   }
 
+  protected abstract isTapeTrapActive(): boolean;
+
+  /** Intercepts standard ROM loader routine (address 0x0556: LD-BYTES) to instantly
+   * transfer tape blocks into memory. */
+  protected executeTapeTrap(): boolean {
+    const block = this.tape.getNextBlock();
+    if (!block) {
+      return false;
+    }
+
+    const expectedFlag = this.cpu.regs.bytes[RegIndex.A]!;
+    const isLoad = this.cpu.getFlag(Flag.C);
+    const startAddr = this.cpu.regs.ix;
+    const requestedLength = this.cpu.regs.de;
+
+    const blockData = block.data;
+    if (blockData.length < 2) {
+      this.tape.advanceBlock(this.totalTStates);
+      this.cpu.setFlag(Flag.C, false);
+      this.cpu.regs.pc = 0x053f;
+      return true;
+    }
+
+    const blockFlag = blockData[0]!;
+    if (blockFlag !== expectedFlag) {
+      this.tape.advanceBlock(this.totalTStates);
+      this.cpu.setFlag(Flag.C, false);
+      this.cpu.regs.pc = 0x053f;
+      return true;
+    }
+
+    let xorSum = 0;
+    for (let i = 0; i < blockData.length; i++) {
+      xorSum ^= blockData[i]!;
+    }
+    if (xorSum !== 0) {
+      this.tape.advanceBlock(this.totalTStates);
+      this.cpu.setFlag(Flag.C, false);
+      this.cpu.regs.pc = 0x053f;
+      return true;
+    }
+
+    const payloadLength = blockData.length - 2;
+    const bytesToTransfer = Math.min(requestedLength, payloadLength);
+
+    let verifyMismatch = false;
+    if (isLoad) {
+      for (let i = 0; i < bytesToTransfer; i++) {
+        this.memory.write8((startAddr + i) & 0xffff, blockData[1 + i]!);
+      }
+    } else {
+      for (let i = 0; i < bytesToTransfer; i++) {
+        if (this.memory.read8((startAddr + i) & 0xffff) !== blockData[1 + i]!) {
+          verifyMismatch = true;
+          break;
+        }
+      }
+    }
+
+    this.tape.advanceBlock(this.totalTStates);
+
+    if (verifyMismatch || requestedLength > payloadLength) {
+      this.cpu.setFlag(Flag.C, false);
+      this.cpu.regs.pc = 0x053f;
+      return true;
+    }
+
+    this.cpu.regs.ix = (startAddr + requestedLength) & 0xffff;
+    this.cpu.regs.de = 0;
+    this.cpu.regs.bytes[RegIndex.A] = 0;
+    this.cpu.setFlag(Flag.C, true);
+    this.cpu.setFlag(Flag.Z, false);
+    const checksumByte = blockData[blockData.length - 1]!;
+    this.cpu.regs.hl = checksumByte;
+    this.cpu.regs.pc = 0x053f;
+    return true;
+  }
+
+  step(): void {
+    if (this.fastTapeLoad && this.isTapeTrapActive()) {
+      if (this.executeTapeTrap()) {
+        this.tick(50);
+        return;
+      }
+    }
+    this.cpu.step();
+  }
+
   runFrame(): void {
     this.ula.beginFrame();
     this.tStates = 0;
     this.frameStartTotalT = this.totalTStates;
     let steps = 0;
     while (this.tStates < this.frameTStateBudget) {
-      this.cpu.step();
+      this.step();
       if (++steps > 100_000) {
         throw new Error("runFrame: exceeded 100 000 steps — possible infinite loop");
       }

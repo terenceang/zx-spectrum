@@ -33,10 +33,10 @@
       T-state clock so playback stays in sync across many frames
 - [x] Play/stop wired through the worker protocol (`loadTape`/`playTape`/
       `stopTape`) with a `tapeStatus` message back to the app
-- [x] App: `.tap`/`.tzx` accepted by the same file input/drag-drop as snapshots
-- [ ] Optional fast-load trap (`Machine` setting, off by default) — skipped for
-      now, add if load-time UX becomes a complaint; accurate playback is the
-      only path today
+- [x] Optional fast-load trap (`Machine` setting, off by default) — intercepts ROM
+      `LD-BYTES` (0x0556 in 48K ROM and 128K ROM 1) to load tape blocks instantly
+      into memory at native memory transfer speed with flag and parity verification,
+      preserving full compatibility with accurate pulse playback for custom loaders.
 
 **Verified against the real 48K ROM, not just our own parser**: hand-built a
 synthetic `.tap` data block, ran it through `parseTap` -> `TapeEdgePlayer`, and

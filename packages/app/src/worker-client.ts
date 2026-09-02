@@ -98,6 +98,10 @@ export class EmulatorClient {
     this.send({ type: "setTapeSound", enabled });
   }
 
+  setFastTapeLoad(enabled: boolean): void {
+    this.send({ type: "setFastTapeLoad", enabled });
+  }
+
   sendKey(row: number, bit: number, down: boolean): void {
     this.send({ type: "keyEvent", row, bit, down });
   }

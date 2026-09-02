@@ -18,6 +18,7 @@ export type BridgeCommand =
   | { reqId: string; cmd: "loadTape"; format: TapeFormat; dataBase64: string }
   | { reqId: string; cmd: "playTape" }
   | { reqId: string; cmd: "stopTape" }
+  | { reqId: string; cmd: "setFastTapeLoad"; enabled: boolean }
   | { reqId: string; cmd: "reset" }
   | { reqId: string; cmd: "keyEvent"; row: number; bit: number; down: boolean }
   | { reqId: string; cmd: "typeText"; text: string };

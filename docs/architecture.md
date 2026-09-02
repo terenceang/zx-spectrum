@@ -89,18 +89,32 @@ selected automatically at `EmulatorClient` construction time.
 ## Tape loading (`packages/core/src/loaders/tap.ts`, `tzx.ts`, `tapePlayer.ts`)
 
 `.tap` blocks and the common `.tzx` block types (0x10-0x14 speed-data variants,
-0x20-0x22/0x30/0x32/0x33 pauses/metadata) both parse down to one
-`TapePulseSequence` (a flat list of `{level, duration}` edges). Pulse generation
-and pause handling are consolidated into reusable utilities (`appendStandardRomBlock`,
-`appendTapePause`). `TapeEdgePlayer` plays that sequence against the machine's
-`totalTStates` clock — a counter that, unlike the per-frame `tStates` used for
-contention/interrupt timing, never resets, since tape playback spans many frames.
-The ULA's port 0xFE read takes the current EAR level as a parameter (supplied by the
-machine from the tape player) rather than owning tape state itself.
+0x20-0x22/0x30/0x32/0x33 pauses/metadata) parse down to `TapePulseSequence`
+(a flat list of `{level, duration}` edges). Pulse generation and pause handling
+are consolidated into reusable utilities (`appendStandardRomBlock`, `appendTapePause`).
+Structured block data is preserved non-enumerable on `TapePulseSequence` (`blocks: TapeBlock[]`),
+associating raw block bytes with pulse boundary ranges (`pulseStartIndex`, `pulseEndIndex`).
 
-No fast-load trap — accurate pulse-timing playback is the only path. Verified
-against the real 48K ROM's `LD-BYTES` routine, not just our own parser (see
-`docs/roadmap.md`).
+Tape loading supports two operational modes:
+
+1. **Cycle-accurate pulse playback** (default):
+   `TapeEdgePlayer` feeds the sequence into port 0xFE bit 6 at exact pilot/sync/data pulse
+   timings driven off the machine's absolute `totalTStates` clock. Loading audio (screech/pilot
+   tones) is filtered through `DcBlocker` and mixed into frame audio when enabled. Verified
+   against the real Sinclair 48K ROM's `LD-BYTES` routine (see `docs/roadmap.md`).
+
+2. **Fast tape instant load option** (`fastTapeLoad`, off by default):
+   Intercepts calls to the standard Sinclair ROM loader routine (`0x0556: LD-BYTES`) on `Machine48k`
+   and `Machine128k` (active only when ROM 1, 48 BASIC, is paged in). Validates the block flag byte (`A`)
+   and Sinclair XOR parity checksum, transfers data bytes directly into memory at `IX` (or verifies in
+   VERIFY mode), synchronizes the pulse player's indices to the end of the block, configures return
+   registers (`IX = IX + DE`, `DE = 0`, `A = 0`, `HL = checksum`, `C = 1`), and routes PC to `0x053F`
+   (`SA-ALL` cleanup) to restore border color from `BORDCR`, check the BREAK key, enable interrupts (`EI`),
+   and `RET` back to the caller. If a game switches to a custom turbo loader that bypasses `0x0556`, the
+   pulse player seamlessly continues real-time audio pulse playback from the exact block boundary.
+   Configurable via `BaseMachine.fastTapeLoad`, worker protocol message `setFastTapeLoad`, UI toggle
+   (`fast-tape-toggle` with `localStorage` persistence), and MCP server tools (`set_fast_tape_load`,
+   `load_tape` with `fastLoad` option).
 
 ## Machine composition (`packages/core/src/machines/`)
 

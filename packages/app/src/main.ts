@@ -22,6 +22,7 @@ const canvas = document.getElementById("screen") as HTMLCanvasElement;
 const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
 const normalKeyboardToggle = document.getElementById("normal-keyboard-toggle") as HTMLInputElement;
 const tapeSoundToggle = document.getElementById("tape-sound-toggle") as HTMLInputElement | null;
+const fastTapeToggle = document.getElementById("fast-tape-toggle") as HTMLInputElement | null;
 const snapshotInput = document.getElementById("snapshot-input") as HTMLInputElement;
 const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElement | null;
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
@@ -116,6 +117,16 @@ tapeSoundToggle?.addEventListener("change", () => {
   const enabled = tapeSoundToggle.checked;
   localStorage.setItem("zx_spectrum_tape_sound", enabled.toString());
   client.setTapeSound(enabled);
+});
+
+const savedFastTape = localStorage.getItem("zx_spectrum_fast_tape_load") === "true";
+if (fastTapeToggle) fastTapeToggle.checked = savedFastTape;
+client.setFastTapeLoad(savedFastTape);
+
+fastTapeToggle?.addEventListener("change", () => {
+  const enabled = fastTapeToggle.checked;
+  localStorage.setItem("zx_spectrum_fast_tape_load", enabled.toString());
+  client.setFastTapeLoad(enabled);
 });
 
 let paused = false;
@@ -576,6 +587,10 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
       return null;
     case "stopTape":
       client.stopTape();
+      return null;
+    case "setFastTapeLoad":
+      client.setFastTapeLoad(message.enabled);
+      if (fastTapeToggle) fastTapeToggle.checked = message.enabled;
       return null;
     case "reset":
       client.reset();

@@ -57,4 +57,20 @@ describe("parseTap", () => {
       );
     }
   });
+
+  it("attaches tape blocks with data and pulse range boundaries", () => {
+    function block(data: number[]): number[] {
+      const bytes = Uint8Array.from(data);
+      return [bytes.length & 0xff, (bytes.length >> 8) & 0xff, ...bytes];
+    }
+    const bytes = Uint8Array.from([...block([0x00, 0x10, 0x20]), ...block([0xff, 0x30, 0x40])]);
+    const pulses = parseTap(bytes);
+    expect(pulses.blocks).toBeDefined();
+    expect(pulses.blocks?.length).toBe(2);
+    expect(pulses.blocks![0]!.data).toEqual(Uint8Array.from([0x00, 0x10, 0x20]));
+    expect(pulses.blocks![0]!.pulseStartIndex).toBe(0);
+    expect(pulses.blocks![0]!.pulseEndIndex).toBeGreaterThan(0);
+    expect(pulses.blocks![1]!.pulseStartIndex).toBe(pulses.blocks![0]!.pulseEndIndex);
+    expect(pulses.blocks![1]!.pulseEndIndex).toBe(pulses.length);
+  });
 });

@@ -17,6 +17,10 @@ export class Machine48k extends BaseMachine<Memory48k> {
     this.memory.loadRom(rom);
   }
 
+  protected isTapeTrapActive(): boolean {
+    return this.cpu.regs.pc === 0x0556;
+  }
+
   getAudioSamples(sampleCount: number, _sampleRate?: number): Float32Array {
     const beeper = this.ula.beeper.renderFrame(this.frameTStateBudget, sampleCount);
     return this.mixAudio(beeper, sampleCount);

@@ -79,4 +79,35 @@ describe("TapeEdgePlayer", () => {
     expect(player.levelAt(100050)).toBe(1); // Next block starts fresh, no pilot pulses missed!
     expect(player.levelAt(100400)).toBe(1); // still within the 500T pulse of next block
   });
+
+  it("tracks and advances blocks for instant tape loading", () => {
+    const player = new TapeEdgePlayer();
+    const seq: TapePulseSequence = [
+      { level: 1, duration: 100 },
+      { level: 0, duration: 200 },
+      { level: 1, duration: 300 },
+      { level: 0, duration: 400 },
+    ];
+    Object.defineProperty(seq, "blocks", {
+      value: [
+        { data: Uint8Array.from([0x00, 0x01]), pulseStartIndex: 0, pulseEndIndex: 2 },
+        { data: Uint8Array.from([0xff, 0x02]), pulseStartIndex: 2, pulseEndIndex: 4 },
+      ],
+    });
+
+    player.load(seq);
+    player.start(0);
+
+    expect(player.hasBlocks()).toBe(true);
+    expect(player.getNextBlock()?.data).toEqual(Uint8Array.from([0x00, 0x01]));
+
+    player.advanceBlock(1000);
+    expect(player.hasBlocks()).toBe(true);
+    expect(player.getNextBlock()?.data).toEqual(Uint8Array.from([0xff, 0x02]));
+
+    player.advanceBlock(2000);
+    expect(player.hasBlocks()).toBe(false);
+    expect(player.getNextBlock()).toBeNull();
+    expect(player.isPlaying()).toBe(false);
+  });
 });

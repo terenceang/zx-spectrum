@@ -1,5 +1,5 @@
 import { DcBlocker } from "../audio/dcBlocker.js";
-import type { TapePulseSequence } from "./tapePulse.js";
+import type { TapeBlock, TapePulseSequence } from "./tapePulse.js";
 
 /** T-state-driven tape playback: the ULA polls `levelAt()` on every port 0xFE read
  * (bit 6, EAR) exactly like real tape hardware, driven by the machine's own
@@ -8,6 +8,8 @@ import type { TapePulseSequence } from "./tapePulse.js";
  * elapsed since the last call. */
 export class TapeEdgePlayer {
   private pulses: TapePulseSequence = [];
+  private blocks: TapeBlock[] = [];
+  private currentBlockIndex = 0;
   private cpuIndex = 0;
   private cpuPulseStartT = 0;
   private audioIndex = 0;
@@ -19,6 +21,8 @@ export class TapeEdgePlayer {
 
   load(pulses: TapePulseSequence): void {
     this.pulses = pulses;
+    this.blocks = pulses.blocks ?? [];
+    this.currentBlockIndex = 0;
     this.stop();
   }
 
@@ -32,6 +36,7 @@ export class TapeEdgePlayer {
     this.dcBlocker.reset();
     this.lastReadT = 0;
     this.consecutiveReads = 0;
+    this.currentBlockIndex = 0;
   }
 
   stop(): void {
@@ -41,10 +46,43 @@ export class TapeEdgePlayer {
     this.dcBlocker.reset();
     this.lastReadT = 0;
     this.consecutiveReads = 0;
+    this.currentBlockIndex = 0;
   }
 
   isPlaying(): boolean {
     return this.playing;
+  }
+
+  getNextBlock(): TapeBlock | null {
+    return this.blocks[this.currentBlockIndex] ?? null;
+  }
+
+  hasBlocks(): boolean {
+    return this.currentBlockIndex < this.blocks.length;
+  }
+
+  advanceBlock(currentTState: number): void {
+    if (this.currentBlockIndex >= this.blocks.length) return;
+    const block = this.blocks[this.currentBlockIndex]!;
+    this.currentBlockIndex++;
+
+    this.cpuIndex = Math.max(this.cpuIndex, block.pulseEndIndex);
+    this.audioIndex = Math.max(this.audioIndex, block.pulseEndIndex);
+    this.cpuPulseStartT = currentTState;
+    this.audioPulseStartT = currentTState;
+
+    if (this.currentBlockIndex >= this.blocks.length || this.cpuIndex >= this.pulses.length) {
+      this.playing = false;
+    }
+  }
+
+  rewind(): void {
+    this.currentBlockIndex = 0;
+    this.cpuIndex = 0;
+    this.audioIndex = 0;
+    this.dcBlocker.reset();
+    this.lastReadT = 0;
+    this.consecutiveReads = 0;
   }
 
   levelAt(tState: number): 0 | 1 {
@@ -80,6 +118,13 @@ export class TapeEdgePlayer {
 
       this.cpuPulseStartT += pulse.duration;
       this.cpuIndex++;
+    }
+
+    while (
+      this.currentBlockIndex < this.blocks.length &&
+      this.cpuIndex >= this.blocks[this.currentBlockIndex]!.pulseEndIndex
+    ) {
+      this.currentBlockIndex++;
     }
 
     if (this.cpuIndex >= this.pulses.length) {

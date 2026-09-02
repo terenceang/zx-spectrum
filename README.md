@@ -13,7 +13,9 @@ npm run dev       # Vite dev server at http://localhost:5173
 ```
 
 Open the page, select 48K or 128K mode, load the corresponding ROM file(s) (see below),
-then drop in a `.sna`, `.z80` snapshot or `.tap`, `.tzx` tape file to play.
+then drop in a `.sna`, `.z80` snapshot or `.tap`, `.tzx` tape file to play. Tape playback
+includes full transport controls (play/stop, eject, loading screech tone toggle, and
+an optional fast tape instant load mode).
 
 ### ROMs
 
@@ -49,12 +51,11 @@ send; without them the app still works, just slower.
 
 ## MCP server
 
-`packages/mcp-server` exposes the emulator as MCP tools (load ROM/snapshot/tape,
-press keys, run frames, read the screen as a PNG) so an MCP client can drive it
-headlessly. Build it (`npm run build --workspace=@zx-spectrum/mcp-server`, or just
-`npm run build`), then point an MCP client at
-`node packages/mcp-server/dist/index.js` — already registered in `.mcp.json` for
-Claude Code in this repo.
+`packages/mcp-server` exposes the emulator as MCP tools (load ROM/snapshot/tape with
+optional fast-load, toggle fast tape load, press keys, run frames, read the screen as a PNG)
+so an MCP client can drive it headlessly. Build it (`npm run build --workspace=@zx-spectrum/mcp-server`,
+or just `npm run build`), then point an MCP client at `node packages/mcp-server/dist/index.js` —
+already registered in `.mcp.json` for Claude Code in this repo.
 
 ## Legal
 

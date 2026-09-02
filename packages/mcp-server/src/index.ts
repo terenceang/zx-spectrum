@@ -123,17 +123,19 @@ server.registerTool(
       "Loads a .tap or .tzx tape into the current machine and starts playing it " +
       "(format inferred from the extension). The Spectrum still needs LOAD \"\" typed " +
       "via press_key/type_text before it will actually read it, same as real hardware.",
-    inputSchema: { path: z.string(), ...instanceIdSchema },
+    inputSchema: { path: z.string(), fastLoad: z.boolean().optional(), ...instanceIdSchema },
   },
-  async ({ path, instanceId }) => {
+  async ({ path, fastLoad, instanceId }) => {
     const format = detectFormat(path, TAPE_EXTENSIONS);
     const target = resolveInstance(instanceId);
     if (target) {
+      if (fastLoad !== undefined) await callInstance(target, "setFastTapeLoad", { enabled: fastLoad });
       const dataBase64 = readFileSync(path).toString("base64");
       await callInstance(target, "loadTape", { format, dataBase64 });
       return { content: [{ type: "text", text: `Loaded and started playing tape "${path}" on instance "${target}".` }] };
     }
     const m = requireMachine();
+    if (fastLoad !== undefined) m.fastTapeLoad = fastLoad;
     const bytes = new Uint8Array(readFileSync(path));
     const pulses = format === "tap" ? parseTap(bytes) : parseTzx(bytes);
     m.loadTape(pulses);
@@ -161,6 +163,21 @@ server.registerTool(
     if (target) await callInstance(target, "stopTape");
     else requireMachine().stopTape();
     return { content: [{ type: "text", text: "Tape stopped." }] };
+  },
+);
+
+server.registerTool(
+  "set_fast_tape_load",
+  {
+    title: "Set fast tape load",
+    description: "Enables or disables fast tape instant loading (intercepts standard ROM loader).",
+    inputSchema: { enabled: z.boolean(), ...instanceIdSchema },
+  },
+  async ({ enabled, instanceId }) => {
+    const target = resolveInstance(instanceId);
+    if (target) await callInstance(target, "setFastTapeLoad", { enabled });
+    else requireMachine().fastTapeLoad = enabled;
+    return { content: [{ type: "text", text: `Fast tape load ${enabled ? "enabled" : "disabled"}.` }] };
   },
 );
 

@@ -7,7 +7,16 @@ export interface TapePulse {
   duration: number; // T-states
   pause?: boolean;
 }
-export type TapePulseSequence = TapePulse[];
+
+export interface TapeBlock {
+  data: Uint8Array;
+  pulseStartIndex: number;
+  pulseEndIndex: number;
+}
+
+export interface TapePulseSequence extends Array<TapePulse> {
+  blocks?: TapeBlock[];
+}
 
 // Standard ROM loader timings (T-states at 3.5MHz), used by .tap blocks and by
 // TZX's "standard speed data" block (ID 0x10).

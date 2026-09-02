@@ -90,4 +90,23 @@ describe("parseTzx", () => {
       );
     }
   });
+
+  it("attaches tape blocks with data and pulse boundaries for 0x10 blocks", () => {
+    function speedDataBlock(data: number[]): number[] {
+      return [0x10, 0xe8, 0x03, data.length, 0x00, ...data];
+    }
+    const bytes = Uint8Array.from([
+      ...tzxHeader(),
+      ...speedDataBlock([0x00, 0x11, 0x22]),
+      ...speedDataBlock([0xff, 0x33, 0x44]),
+    ]);
+
+    const pulses = parseTzx(bytes);
+    expect(pulses.blocks).toBeDefined();
+    expect(pulses.blocks?.length).toBe(2);
+    expect(pulses.blocks![0]!.data).toEqual(Uint8Array.from([0x00, 0x11, 0x22]));
+    expect(pulses.blocks![1]!.data).toEqual(Uint8Array.from([0xff, 0x33, 0x44]));
+    expect(pulses.blocks![0]!.pulseStartIndex).toBe(0);
+    expect(pulses.blocks![1]!.pulseStartIndex).toBe(pulses.blocks![0]!.pulseEndIndex);
+  });
 });
