@@ -313,6 +313,11 @@ body {
   outline: none;
 }
 
+.control-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .control-select:focus {
   border-color: var(--accent);
 }
@@ -331,6 +336,11 @@ body {
   transition: all 0.15s ease;
   overflow: hidden;
   max-width: 165px;
+}
+
+.control-file-btn:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .control-file-btn:hover {
@@ -363,6 +373,11 @@ body {
   font-size: 0.72rem;
   cursor: pointer;
   user-select: none;
+}
+
+.control-checkbox input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .control-checkbox input[type="checkbox"] {
@@ -419,6 +434,11 @@ body {
   outline: none;
   cursor: pointer;
   accent-color: var(--accent);
+}
+
+.volume-slider:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -487,6 +507,11 @@ body {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn:hover {
