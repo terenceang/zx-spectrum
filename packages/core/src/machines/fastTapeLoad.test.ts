@@ -519,4 +519,70 @@ describe("Fast tape instant load option", () => {
     }
     expect(nonZeroPixels).toBeGreaterThan(5000);
   });
+
+  it("smoke test: fast loads Fairlight, resets, then slow loads via cycle-accurate pulses", () => {
+    const tapPath = resolve(process.cwd(), "Tapes/TAP/Fairlight - A Prelude (1985)(The Edge Software).tap");
+    const tapBytes = readFileSync(tapPath);
+    const machine = new Machine48k();
+    load48kRom(machine);
+    machine.reset();
+
+    function typeKey(row: number, bit: number, sRow?: number, sBit?: number): void {
+      if (sRow !== undefined && sBit !== undefined) machine.keyboard.setKey(sRow, sBit, true);
+      machine.keyboard.setKey(row, bit, true);
+      for (let f = 0; f < 6; f++) machine.runFrame();
+      machine.keyboard.setKey(row, bit, false);
+      if (sRow !== undefined && sBit !== undefined) machine.keyboard.setKey(sRow, sBit, false);
+      for (let f = 0; f < 6; f++) machine.runFrame();
+    }
+
+    // --- STEP 1: Fast load Fairlight ---
+    machine.loadTape(parseTap(tapBytes));
+    machine.fastTapeLoad = true;
+    for (let f = 0; f < 90; f++) machine.runFrame();
+
+    machine.playTape();
+    typeKey(6, 3); // J (LOAD)
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(6, 0); // ENTER
+
+    for (let f = 0; f < 50; f++) machine.runFrame();
+
+    // Verify fast load finished all 5 blocks instantly
+    expect(machine.tape.hasBlocks()).toBe(false);
+    expect(machine.tape.isPlaying()).toBe(false);
+    expect(machine.tape.currentBlockIndex).toBe(5);
+
+    let fastPixels = 0;
+    for (let addr = 0x4000; addr < 0x5800; addr++) {
+      if (machine.memory.read8(addr) !== 0) fastPixels++;
+    }
+    expect(fastPixels).toBeGreaterThan(5000);
+
+    // --- STEP 2: Reset system ---
+    machine.reset();
+    expect(machine.cpu.regs.pc).toBe(0x0000);
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    // --- STEP 3: Slow load via cycle-accurate pulses ---
+    machine.loadTape(parseTap(tapBytes));
+    machine.fastTapeLoad = false; // Disable fast load trap!
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    for (let f = 0; f < 90; f++) machine.runFrame();
+
+    machine.playTape();
+    typeKey(6, 3); // J (LOAD)
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(6, 0); // ENTER
+
+    // Emulate 1,000 frames of real audio pulse playback through port 0xFE
+    for (let f = 0; f < 1000; f++) machine.runFrame();
+
+    // Verify ROM edge detector has decoded pulses for multiple blocks without trap
+    expect(machine.tape.currentBlockIndex).toBeGreaterThanOrEqual(3);
+    expect(machine.tape.isPlaying()).toBe(true);
+  });
 });
