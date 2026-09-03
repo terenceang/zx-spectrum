@@ -72,6 +72,6 @@ Keep all assets same-origin — COEP `require-corp` breaks cross-origin subresou
 - Cross-origin isolation: Missing headers cause silent performance degradation.
 - Machine models: Extend `BaseMachine<M>` when implementing new models (e.g. +3) to inherit timing, contention, and audio handling.
 
-## Known Issues
+## Known Issues & Software Quirks
 
-- Fairlight 128K: top of screen corrupted after tape loading until key press (fixes itself on key press — to fix later).
+- Fairlight 128K: top of screen displays raw staging data after tape loading during the title tune until key press (fixes itself on key press). This is authentic behavior of the original 1985 game release — tape blocks 19 & 21 temporarily reuse screen memory (`0x4000..0x59AA`) as a scratch buffer for compressed data, and the game enters the title music playback loop before calling its screen restoration routine (`0x7C39`) from Bank 4.
