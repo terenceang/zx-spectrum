@@ -19,7 +19,8 @@ export class Machine128k extends BaseMachine<Memory128k> {
   }
 
   protected isTapeTrapActive(): boolean {
-    return this.cpu.regs.pc === 0x0556 && this.memory.romBank === 1;
+    const pc = this.cpu.regs.pc;
+    return (pc === 0x0556 || pc === 0x0569) && this.memory.romBank === 1;
   }
 
   override reset(): void {

@@ -18,7 +18,8 @@ export class Machine48k extends BaseMachine<Memory48k> {
   }
 
   protected isTapeTrapActive(): boolean {
-    return this.cpu.regs.pc === 0x0556;
+    const pc = this.cpu.regs.pc;
+    return pc === 0x0556 || pc === 0x0569;
   }
 
   getAudioSamples(sampleCount: number, _sampleRate?: number): Float32Array {

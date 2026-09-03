@@ -104,14 +104,15 @@ Tape loading supports two operational modes:
    against the real Sinclair 48K ROM's `LD-BYTES` routine (see `docs/roadmap.md`).
 
 2. **Fast tape instant load option** (`fastTapeLoad`, off by default):
-   Intercepts calls to the standard Sinclair ROM loader routine (`0x0556: LD-BYTES`) on `Machine48k`
-   and `Machine128k` (active only when ROM 1, 48 BASIC, is paged in). Validates the block flag byte (`A`)
-   and Sinclair XOR parity checksum, transfers data bytes directly into memory at `IX` (or verifies in
-   VERIFY mode), synchronizes the pulse player's indices to the end of the block, configures return
-   registers (`IX = IX + DE`, `DE = 0`, `A = 0`, `HL = checksum`, `C = 1`), and routes PC to `0x053F`
-   (`SA-ALL` cleanup) to restore border color from `BORDCR`, check the BREAK key, enable interrupts (`EI`),
-   and `RET` back to the caller. If a game switches to a custom turbo loader that bypasses `0x0556`, the
-   pulse player seamlessly continues real-time audio pulse playback from the exact block boundary.
+   Intercepts calls to the standard Sinclair ROM loader routines (`0x0556: LD-BYTES` and
+   `0x0569: LD-SEARCH`, commonly used by games like Fairlight to customize border colors and return
+   sequences) on `Machine48k` and `Machine128k` (active only when ROM 1, 48 BASIC, is paged in).
+   Validates the block flag byte (`A` at `0x0556`, `A'` at `0x0569`) and Sinclair XOR parity checksum,
+   transfers data bytes directly into memory at `IX` (or verifies in VERIFY mode), synchronizes the pulse
+   player's indices to the end of the block, configures return registers (`IX = IX + DE`, `DE = 0`, `A = 0`,
+   `HL = checksum`, `C = 1`), and routes return cleanly (to `0x053F: SA-ALL` cleanup for `0x0556`, or popping
+   the caller's return address for `0x0569`). If a game switches to a custom turbo loader that bypasses
+   ROM routines, the pulse player seamlessly continues real-time audio pulse playback from the exact block boundary.
    Configurable via `BaseMachine.fastTapeLoad`, worker protocol message `setFastTapeLoad`, UI toggle
    (`fast-tape-toggle` with `localStorage` persistence), and MCP server tools (`set_fast_tape_load`,
    `load_tape` with `fastLoad` option).

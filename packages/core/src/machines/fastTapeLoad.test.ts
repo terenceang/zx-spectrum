@@ -315,4 +315,118 @@ describe("Fast tape instant load option", () => {
     expect(machine.tape.hasBlocks()).toBe(false);
     expect(machine.tape.isPlaying()).toBe(false);
   });
+
+  it("intercepts 0x0569 (LD-SEARCH) custom loader entry point and returns via popped return address", () => {
+    const machine = new Machine48k();
+    load48kRom(machine);
+    machine.reset();
+
+    const payload = [100, 101, 102, 103];
+    const tapFile = buildTapBlock(0xff, payload);
+    machine.loadTape(parseTap(tapFile));
+    machine.fastTapeLoad = true;
+    machine.playTape();
+
+    // At 0x0569, A' has expected flag (0xFF), F' has Carry=1, IX is destination, DE is length
+    machine.cpu.regs.pc = 0x0569;
+    machine.cpu.regs.ix = 0xa000;
+    machine.cpu.regs.de = payload.length;
+    machine.cpu.regs.bytes[RegIndex.A_] = 0xff;
+    machine.cpu.regs.bytes[RegIndex.F_] = 0x01; // Carry = 1
+    machine.cpu.push(0x7890); // Caller return address
+
+    machine.step();
+
+    expect(machine.cpu.regs.pc).toBe(0x7890);
+    expect(machine.cpu.getFlag(Flag.C)).toBe(true);
+    expect(machine.cpu.regs.de).toBe(0);
+    expect(machine.cpu.regs.ix).toBe(0xa000 + payload.length);
+    for (let i = 0; i < payload.length; i++) {
+      expect(machine.memory.read8(0xa000 + i)).toBe(payload[i]);
+    }
+  });
+
+  it("loads Fairlight 48K end-to-end with fastTapeLoad", () => {
+    const tapPath = resolve(process.cwd(), "Tapes/TAP/Fairlight - A Prelude (1985)(The Edge Software).tap");
+    const tapBytes = readFileSync(tapPath);
+
+    const machine = new Machine48k();
+    load48kRom(machine);
+    machine.reset();
+
+    machine.loadTape(parseTap(tapBytes));
+    machine.fastTapeLoad = true;
+    machine.playTape();
+
+    // Boot 48K ROM to editor prompt
+    for (let f = 0; f < 90; f++) machine.runFrame();
+
+    // Type LOAD "" via keyboard
+    function typeKey(row: number, bit: number, sRow?: number, sBit?: number): void {
+      if (sRow !== undefined && sBit !== undefined) machine.keyboard.setKey(sRow, sBit, true);
+      machine.keyboard.setKey(row, bit, true);
+      for (let f = 0; f < 6; f++) machine.runFrame();
+      machine.keyboard.setKey(row, bit, false);
+      if (sRow !== undefined && sBit !== undefined) machine.keyboard.setKey(sRow, sBit, false);
+      for (let f = 0; f < 6; f++) machine.runFrame();
+    }
+
+    typeKey(6, 3); // J (LOAD)
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(6, 0); // ENTER
+
+    // Let fast load process all 5 blocks and initialize game
+    for (let f = 0; f < 50; f++) machine.runFrame();
+
+    expect(machine.tape.hasBlocks()).toBe(false);
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    // Verify screen has active game rendering (>5000 non-zero pixel bytes)
+    let nonZeroPixels = 0;
+    for (let addr = 0x4000; addr < 0x5800; addr++) {
+      if (machine.memory.read8(addr) !== 0) nonZeroPixels++;
+    }
+    expect(nonZeroPixels).toBeGreaterThan(5000);
+  });
+
+  it("loads Fairlight 128K (all 22 blocks) end-to-end with fastTapeLoad", () => {
+    const rom0Path = resolve(process.cwd(), "rom/128-0.rom");
+    const rom1Path = resolve(process.cwd(), "rom/128-1.rom");
+    const tapPath = resolve(process.cwd(), "Tapes/TAP/Fairlight - A Prelude (1985)(The Edge Software)[128K].tap");
+
+    const machine = new Machine128k();
+    machine.loadRoms(readFileSync(rom0Path), readFileSync(rom1Path));
+    machine.reset();
+
+    machine.loadTape(parseTap(readFileSync(tapPath)));
+    machine.fastTapeLoad = true;
+    machine.playTape();
+
+    // Run 60 boot frames for 128K menu
+    for (let f = 0; f < 60; f++) machine.runFrame();
+
+    // Press ENTER on "Tape Loader"
+    machine.keyboard.setKey(6, 0, true);
+    for (let f = 0; f < 5; f++) machine.runFrame();
+    machine.keyboard.setKey(6, 0, false);
+
+    // Fast load all 22 blocks (including in-memory decompression)
+    for (let f = 0; f < 300; f++) {
+      machine.runFrame();
+      if (!machine.tape.isPlaying()) break;
+    }
+
+    expect(machine.tape.hasBlocks()).toBe(false);
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    // Run 50 more frames for in-game initialization
+    for (let f = 0; f < 50; f++) machine.runFrame();
+
+    let nonZeroPixels = 0;
+    for (let addr = 0x4000; addr < 0x5800; addr++) {
+      if (machine.memory.read8(addr) !== 0) nonZeroPixels++;
+    }
+    expect(nonZeroPixels).toBeGreaterThan(5000);
+  });
 });

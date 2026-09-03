@@ -53,7 +53,8 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
 
   protected abstract isTapeTrapActive(): boolean;
 
-  /** Intercepts standard ROM loader routine (address 0x0556: LD-BYTES) to instantly
+  /** Intercepts standard ROM loader routines (address 0x0556: LD-BYTES and
+   * address 0x0569: LD-SEARCH, used by custom loaders like Fairlight) to instantly
    * transfer tape blocks into memory. */
   protected executeTapeTrap(): boolean {
     const block = this.tape.getNextBlock();
@@ -61,24 +62,32 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
       return false;
     }
 
-    const expectedFlag = this.cpu.regs.bytes[RegIndex.A]!;
-    const isLoad = this.cpu.getFlag(Flag.C);
+    const isAt569 = this.cpu.regs.pc === 0x0569;
+    const expectedFlag = isAt569 ? this.cpu.regs.bytes[RegIndex.A_]! : this.cpu.regs.bytes[RegIndex.A]!;
+    const isLoad = isAt569 ? (this.cpu.regs.bytes[RegIndex.F_]! & 1) !== 0 : this.cpu.getFlag(Flag.C);
     const startAddr = this.cpu.regs.ix;
     const requestedLength = this.cpu.regs.de;
+
+    const returnExit = (success: boolean): void => {
+      this.cpu.setFlag(Flag.C, success);
+      if (isAt569) {
+        this.cpu.regs.pc = this.cpu.pop();
+      } else {
+        this.cpu.regs.pc = 0x053f;
+      }
+    };
 
     const blockData = block.data;
     if (blockData.length < 2) {
       this.tape.advanceBlock(this.totalTStates);
-      this.cpu.setFlag(Flag.C, false);
-      this.cpu.regs.pc = 0x053f;
+      returnExit(false);
       return true;
     }
 
     const blockFlag = blockData[0]!;
     if (blockFlag !== expectedFlag) {
       this.tape.advanceBlock(this.totalTStates);
-      this.cpu.setFlag(Flag.C, false);
-      this.cpu.regs.pc = 0x053f;
+      returnExit(false);
       return true;
     }
 
@@ -88,8 +97,7 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
     }
     if (xorSum !== 0) {
       this.tape.advanceBlock(this.totalTStates);
-      this.cpu.setFlag(Flag.C, false);
-      this.cpu.regs.pc = 0x053f;
+      returnExit(false);
       return true;
     }
 
@@ -113,19 +121,17 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
     this.tape.advanceBlock(this.totalTStates);
 
     if (verifyMismatch || requestedLength > payloadLength) {
-      this.cpu.setFlag(Flag.C, false);
-      this.cpu.regs.pc = 0x053f;
+      returnExit(false);
       return true;
     }
 
     this.cpu.regs.ix = (startAddr + requestedLength) & 0xffff;
     this.cpu.regs.de = 0;
     this.cpu.regs.bytes[RegIndex.A] = 0;
-    this.cpu.setFlag(Flag.C, true);
     this.cpu.setFlag(Flag.Z, false);
     const checksumByte = blockData[blockData.length - 1]!;
     this.cpu.regs.hl = checksumByte;
-    this.cpu.regs.pc = 0x053f;
+    returnExit(true);
     return true;
   }
 
