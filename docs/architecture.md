@@ -114,7 +114,7 @@ Tape loading supports two operational modes:
    the caller's return address for `0x0569`). If a game switches to a custom turbo loader that bypasses
    ROM routines, the pulse player seamlessly continues real-time audio pulse playback from the exact block boundary.
     Configurable via `BaseMachine.fastTapeLoad`, worker protocol message `setFastTapeLoad`, UI toggle
-    (`fast-tape-toggle` with `localStorage` persistence), and MCP server tools (`set_fast_tape_load`,
+    (`fast-tape-toggle` with `localStorage` persistence in the screen options bar below the canvas), and MCP server tools (`set_fast_tape_load`,
     `load_tape` with `fastLoad` option).
 
 Tapes load into the cassette player in the **stopped** state (`isPlaying === false`). Playback is started
