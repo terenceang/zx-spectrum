@@ -117,6 +117,15 @@ Tape loading supports two operational modes:
    (`fast-tape-toggle` with `localStorage` persistence), and MCP server tools (`set_fast_tape_load`,
    `load_tape` with `fastLoad` option).
 
+3. **Auto-start instant load on tape insertion** (`autoStartTape()`):
+   When a user loads or drags a `.tap` or `.tzx` file into the emulator, `autoStartTape()` automatically
+   enables `fastTapeLoad`, resets to a clean Sinclair state, and initiates loading:
+   - On 48K machines: waits for the BASIC editor prompt and inputs `LOAD ""` (tokens `J`, `""`, `Enter`).
+   - On 128K machines: waits for the boot menu and presses `Enter` on "Tape Loader".
+   Because `fastTapeLoad` is active, all tape blocks transfer directly into memory with zero user typing required.
+   Configurable via `loadTape` protocol message (`autoStart?: boolean`, default `true`), UI file input/drop,
+   and MCP tool `load_tape`.
+
 ## Machine composition (`packages/core/src/machines/`)
 
 Both `Machine48k` and `Machine128k` extend `BaseMachine<M extends MemoryDevice>`,

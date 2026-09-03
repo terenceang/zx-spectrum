@@ -51,6 +51,8 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
     this.tStates = 0;
   }
 
+  abstract autoStartTape(): void;
+
   protected abstract isTapeTrapActive(): boolean;
 
   /** Intercepts standard ROM loader routines (address 0x0556: LD-BYTES and

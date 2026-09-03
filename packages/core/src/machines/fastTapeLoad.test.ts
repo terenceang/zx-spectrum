@@ -429,4 +429,56 @@ describe("Fast tape instant load option", () => {
     }
     expect(nonZeroPixels).toBeGreaterThan(5000);
   });
+
+  it("auto-starts instant tape load on Machine48k via autoStartTape()", () => {
+    const tapPath = resolve(process.cwd(), "Tapes/TAP/Fairlight - A Prelude (1985)(The Edge Software).tap");
+    const machine = new Machine48k();
+    load48kRom(machine);
+
+    machine.loadTape(parseTap(readFileSync(tapPath)));
+    machine.autoStartTape();
+
+    for (let f = 0; f < 180; f++) {
+      machine.runFrame();
+      if (!machine.tape.isPlaying() && !machine.tape.hasBlocks()) break;
+    }
+
+    expect(machine.tape.hasBlocks()).toBe(false);
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    let nonZeroPixels = 0;
+    for (let addr = 0x4000; addr < 0x5800; addr++) {
+      if (machine.memory.read8(addr) !== 0) nonZeroPixels++;
+    }
+    expect(nonZeroPixels).toBeGreaterThan(5000);
+  });
+
+  it("auto-starts instant tape load on Machine128k via autoStartTape()", () => {
+    const rom0Path = resolve(process.cwd(), "rom/128-0.rom");
+    const rom1Path = resolve(process.cwd(), "rom/128-1.rom");
+    const tapPath = resolve(process.cwd(), "Tapes/TAP/Fairlight - A Prelude (1985)(The Edge Software)[128K].tap");
+
+    const machine = new Machine128k();
+    machine.loadRoms(readFileSync(rom0Path), readFileSync(rom1Path));
+
+    machine.loadTape(parseTap(readFileSync(tapPath)));
+    machine.autoStartTape();
+
+    for (let f = 0; f < 350; f++) {
+      machine.runFrame();
+      if (!machine.tape.isPlaying() && !machine.tape.hasBlocks()) break;
+    }
+
+    expect(machine.tape.hasBlocks()).toBe(false);
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    // Run 50 more frames for in-game initialization
+    for (let f = 0; f < 50; f++) machine.runFrame();
+
+    let nonZeroPixels = 0;
+    for (let addr = 0x4000; addr < 0x5800; addr++) {
+      if (machine.memory.read8(addr) !== 0) nonZeroPixels++;
+    }
+    expect(nonZeroPixels).toBeGreaterThan(5000);
+  });
 });

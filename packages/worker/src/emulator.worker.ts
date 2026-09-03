@@ -125,7 +125,11 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       const pulses = message.format === "tap" ? parseTap(bytes) : parseTzx(bytes);
       const machine = currentMachine();
       machine.loadTape(pulses);
-      machine.playTape();
+      if (message.autoStart !== false) {
+        machine.autoStartTape();
+      } else {
+        machine.playTape();
+      }
       lastTapePlaying = machine.tape.isPlaying();
       post({ type: "tapeStatus", playing: lastTapePlaying });
       start();

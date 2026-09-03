@@ -336,9 +336,18 @@ async function loadMediaFile(file: File): Promise<void> {
     await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
   } else if (tapeExt) {
     const format = TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS];
-    client.loadTape(format, data);
+    if (fastTapeToggle) fastTapeToggle.checked = true;
+    localStorage.setItem("zx_spectrum_fast_tape_load", "true");
+    client.setFastTapeLoad(true);
+
+    client.loadTape(format, data, true);
     if (mediaFileText) mediaFileText.textContent = file.name;
     await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
+    status.textContent = `Loaded "${file.name}". Instant loading…`;
+    paused = false;
+    updatePauseUi();
+    await ensureAudioStarted();
+    return;
   } else {
     status.textContent = `Unrecognized file type: "${file.name}" (expected .sna/.z80/.tap/.tzx)`;
     return;
@@ -580,7 +589,10 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
       client.loadSnapshot(message.format, base64ToArrayBuffer(message.dataBase64));
       return null;
     case "loadTape":
-      client.loadTape(message.format, base64ToArrayBuffer(message.dataBase64));
+      if (fastTapeToggle) fastTapeToggle.checked = true;
+      localStorage.setItem("zx_spectrum_fast_tape_load", "true");
+      client.setFastTapeLoad(true);
+      client.loadTape(message.format, base64ToArrayBuffer(message.dataBase64), message.autoStart ?? true);
       return null;
     case "playTape":
       client.playTape();

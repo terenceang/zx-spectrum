@@ -82,8 +82,8 @@ export class EmulatorClient {
     this.send({ type: "loadSnapshot", format, data }, [data]);
   }
 
-  loadTape(format: "tap" | "tzx", data: ArrayBuffer): void {
-    this.send({ type: "loadTape", format, data }, [data]);
+  loadTape(format: "tap" | "tzx", data: ArrayBuffer, autoStart = true): void {
+    this.send({ type: "loadTape", format, data, autoStart }, [data]);
   }
 
   playTape(): void {

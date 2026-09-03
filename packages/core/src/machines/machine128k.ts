@@ -23,10 +23,48 @@ export class Machine128k extends BaseMachine<Memory128k> {
     return (pc === 0x0556 || pc === 0x0569) && this.memory.romBank === 1;
   }
 
+  private autoLoaderState: "idle" | "wait_menu" | "press_enter" = "idle";
+  private autoLoaderTimer = 0;
+
   override reset(): void {
     super.reset();
     this.ay.reset();
     this.memory.reset();
+    this.autoLoaderState = "idle";
+    this.autoLoaderTimer = 0;
+  }
+
+  autoStartTape(): void {
+    this.fastTapeLoad = true;
+    this.reset();
+    this.autoLoaderState = "wait_menu";
+    this.autoLoaderTimer = 0;
+  }
+
+  override runFrame(): void {
+    this.updateAutoLoader();
+    super.runFrame();
+  }
+
+  private updateAutoLoader(): void {
+    if (this.autoLoaderState === "wait_menu") {
+      this.autoLoaderTimer++;
+      if (this.memory.romBank === 0 && this.autoLoaderTimer >= 55) {
+        this.autoLoaderState = "press_enter";
+        this.autoLoaderTimer = 0;
+      }
+    } else if (this.autoLoaderState === "press_enter") {
+      this.autoLoaderTimer++;
+      if (this.autoLoaderTimer === 1) {
+        this.playTape();
+      }
+      if (this.autoLoaderTimer <= 4) {
+        this.keyboard.setKey(6, 0, true);
+      } else {
+        this.keyboard.setKey(6, 0, false);
+        this.autoLoaderState = "idle";
+      }
+    }
   }
 
   /** Mixes the beeper, AY chip, and optional tape audio down to one buffer. */
