@@ -33,10 +33,10 @@
       T-state clock so playback stays in sync across many frames
 - [x] Play/stop wired through the worker protocol (`loadTape`/`playTape`/
       `stopTape`) with a `tapeStatus` message back to the app
-- [x] Fast-load trap and auto-start on tape load — intercepts ROM `LD-BYTES` (0x0556)
-      and `LD-SEARCH` (0x0569) to load tape blocks instantly with flag and parity verification;
-      automatically triggers 128K Tape Loader or enters `LOAD ""` on 48K machines upon tape
-      insertion so games load and start immediately with zero manual typing required.
+- [x] Fast-load trap option (`Machine` setting, off by default) — intercepts ROM
+      `LD-BYTES` (0x0556) and `LD-SEARCH` (0x0569) to load tape blocks instantly into
+      memory at native speed with flag and parity verification when tape playback is active,
+      preserving full compatibility with accurate pulse playback for custom loaders.
 
 **Verified against the real 48K ROM, not just our own parser**: hand-built a
 synthetic `.tap` data block, ran it through `parseTap` -> `TapeEdgePlayer`, and

@@ -336,14 +336,10 @@ async function loadMediaFile(file: File): Promise<void> {
     await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
   } else if (tapeExt) {
     const format = TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS];
-    if (fastTapeToggle) fastTapeToggle.checked = true;
-    localStorage.setItem("zx_spectrum_fast_tape_load", "true");
-    client.setFastTapeLoad(true);
-
-    client.loadTape(format, data, true);
+    client.loadTape(format, data);
     if (mediaFileText) mediaFileText.textContent = file.name;
     await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
-    status.textContent = `Loaded "${file.name}". Instant loading…`;
+    status.textContent = `Loaded "${file.name}". Tape stopped.`;
     paused = false;
     updatePauseUi();
     await ensureAudioStarted();
@@ -589,10 +585,7 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
       client.loadSnapshot(message.format, base64ToArrayBuffer(message.dataBase64));
       return null;
     case "loadTape":
-      if (fastTapeToggle) fastTapeToggle.checked = true;
-      localStorage.setItem("zx_spectrum_fast_tape_load", "true");
-      client.setFastTapeLoad(true);
-      client.loadTape(message.format, base64ToArrayBuffer(message.dataBase64), message.autoStart ?? true);
+      client.loadTape(message.format, base64ToArrayBuffer(message.dataBase64));
       return null;
     case "playTape":
       client.playTape();

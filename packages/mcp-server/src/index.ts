@@ -120,41 +120,36 @@ server.registerTool(
   {
     title: "Load tape",
     description:
-      "Loads a .tap or .tzx tape into the current machine and starts playing it " +
-      "(format inferred from the extension). The Spectrum still needs LOAD \"\" typed " +
-      "Loads a .tap or .tzx tape file into the cassette player. By default autoStart=true " +
-      "initiates instant fast tape loading (resets, enters 128K Tape Loader or types LOAD \"\", " +
-      "and instantly transfers blocks into memory). Pass autoStart=false to insert the tape without auto-starting.",
+      "Loads a .tap or .tzx tape file into the cassette player in stopped state. " +
+      "Use play_tape to start playback.",
     inputSchema: {
       path: z.string(),
       fastLoad: z.boolean().optional(),
-      autoStart: z.boolean().optional(),
+      play: z.boolean().optional(),
       ...instanceIdSchema,
     },
   },
-  async ({ path, fastLoad, autoStart, instanceId }) => {
+  async ({ path, fastLoad, play, instanceId }) => {
     const format = detectFormat(path, TAPE_EXTENSIONS);
     const target = resolveInstance(instanceId);
-    const shouldAutoStart = autoStart ?? true;
     if (target) {
       if (fastLoad !== undefined) await callInstance(target, "setFastTapeLoad", { enabled: fastLoad });
-      else if (shouldAutoStart) await callInstance(target, "setFastTapeLoad", { enabled: true });
       const dataBase64 = readFileSync(path).toString("base64");
-      await callInstance(target, "loadTape", { format, dataBase64, autoStart: shouldAutoStart });
-      return { content: [{ type: "text", text: `Loaded tape "${path}" on instance "${target}" (autoStart=${shouldAutoStart}).` }] };
+      await callInstance(target, "loadTape", { format, dataBase64 });
+      if (play) await callInstance(target, "playTape");
+      return { content: [{ type: "text", text: `Loaded tape "${path}" on instance "${target}" (${play ? "playing" : "stopped"}).` }] };
     }
     const m = requireMachine();
     if (fastLoad !== undefined) m.fastTapeLoad = fastLoad;
-    else if (shouldAutoStart) m.fastTapeLoad = true;
     const bytes = new Uint8Array(readFileSync(path));
     const pulses = format === "tap" ? parseTap(bytes) : parseTzx(bytes);
     m.loadTape(pulses);
-    if (shouldAutoStart) {
-      m.autoStartTape();
-    } else {
+    if (play) {
       m.playTape();
+    } else {
+      m.stopTape();
     }
-    return { content: [{ type: "text", text: `Loaded tape "${path}" (autoStart=${shouldAutoStart}).` }] };
+    return { content: [{ type: "text", text: `Loaded tape "${path}" (${play ? "playing" : "stopped"}).` }] };
   },
 );
 

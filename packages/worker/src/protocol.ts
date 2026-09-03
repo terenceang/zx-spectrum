@@ -8,7 +8,7 @@ export type HostToWorkerMessage =
    * concatenated (rom0 then rom1) into a 32768-byte buffer for "128k". */
   | { type: "loadRom"; model: MachineModel; rom: ArrayBuffer }
   | { type: "loadSnapshot"; format: SnapshotFormat; data: ArrayBuffer }
-  | { type: "loadTape"; format: TapeFormat; data: ArrayBuffer; autoStart?: boolean }
+  | { type: "loadTape"; format: TapeFormat; data: ArrayBuffer }
   | { type: "playTape" }
   | { type: "stopTape" }
   | { type: "setTapeSound"; enabled: boolean }

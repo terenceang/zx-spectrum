@@ -430,18 +430,41 @@ describe("Fast tape instant load option", () => {
     expect(nonZeroPixels).toBeGreaterThan(5000);
   });
 
-  it("auto-starts instant tape load on Machine48k via autoStartTape()", () => {
+  it("loads tape into Machine48k in stopped state and fast-loads upon play", () => {
     const tapPath = resolve(process.cwd(), "Tapes/TAP/Fairlight - A Prelude (1985)(The Edge Software).tap");
     const machine = new Machine48k();
     load48kRom(machine);
+    machine.reset();
 
     machine.loadTape(parseTap(readFileSync(tapPath)));
-    machine.autoStartTape();
+    machine.fastTapeLoad = true;
 
-    for (let f = 0; f < 180; f++) {
-      machine.runFrame();
-      if (!machine.tape.isPlaying() && !machine.tape.hasBlocks()) break;
+    // Tape must start in stopped state!
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    // Boot 48K ROM to editor prompt
+    for (let f = 0; f < 90; f++) machine.runFrame();
+
+    // Start tape playback
+    machine.playTape();
+    expect(machine.tape.isPlaying()).toBe(true);
+
+    // Type LOAD "" via keyboard
+    function typeKey(row: number, bit: number, sRow?: number, sBit?: number): void {
+      if (sRow !== undefined && sBit !== undefined) machine.keyboard.setKey(sRow, sBit, true);
+      machine.keyboard.setKey(row, bit, true);
+      for (let f = 0; f < 6; f++) machine.runFrame();
+      machine.keyboard.setKey(row, bit, false);
+      if (sRow !== undefined && sBit !== undefined) machine.keyboard.setKey(sRow, sBit, false);
+      for (let f = 0; f < 6; f++) machine.runFrame();
     }
+
+    typeKey(6, 3); // J (LOAD)
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(5, 0, 7, 1); // SYMBOL SHIFT + P (")
+    typeKey(6, 0); // ENTER
+
+    for (let f = 0; f < 50; f++) machine.runFrame();
 
     expect(machine.tape.hasBlocks()).toBe(false);
     expect(machine.tape.isPlaying()).toBe(false);
@@ -453,18 +476,33 @@ describe("Fast tape instant load option", () => {
     expect(nonZeroPixels).toBeGreaterThan(5000);
   });
 
-  it("auto-starts instant tape load on Machine128k via autoStartTape()", () => {
+  it("loads tape into Machine128k in stopped state and fast-loads upon play", () => {
     const rom0Path = resolve(process.cwd(), "rom/128-0.rom");
     const rom1Path = resolve(process.cwd(), "rom/128-1.rom");
     const tapPath = resolve(process.cwd(), "Tapes/TAP/Fairlight - A Prelude (1985)(The Edge Software)[128K].tap");
 
     const machine = new Machine128k();
     machine.loadRoms(readFileSync(rom0Path), readFileSync(rom1Path));
+    machine.reset();
 
     machine.loadTape(parseTap(readFileSync(tapPath)));
-    machine.autoStartTape();
+    machine.fastTapeLoad = true;
 
-    for (let f = 0; f < 350; f++) {
+    // Tape must start in stopped state!
+    expect(machine.tape.isPlaying()).toBe(false);
+
+    // Run 60 boot frames for 128K menu
+    for (let f = 0; f < 60; f++) machine.runFrame();
+
+    // Start tape and press ENTER on "Tape Loader"
+    machine.playTape();
+    expect(machine.tape.isPlaying()).toBe(true);
+
+    machine.keyboard.setKey(6, 0, true);
+    for (let f = 0; f < 5; f++) machine.runFrame();
+    machine.keyboard.setKey(6, 0, false);
+
+    for (let f = 0; f < 300; f++) {
       machine.runFrame();
       if (!machine.tape.isPlaying() && !machine.tape.hasBlocks()) break;
     }
