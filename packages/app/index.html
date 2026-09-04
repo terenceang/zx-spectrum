@@ -46,10 +46,182 @@
           </svg>
         </button>
       </div>
+
+      <div class="tape-library-transport">
+        <button id="tape-btn" class="btn btn-icon btn-accent" type="button" title="Play tape" aria-label="Play/Stop tape">
+          <svg class="icon-tape-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+          </svg>
+          <svg class="icon-tape-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+            <rect x="5" y="5" width="14" height="14" rx="1"></rect>
+          </svg>
+        </button>
+
+        <button id="tape-eject-btn" class="btn btn-icon" type="button" title="Eject tape" aria-label="Eject tape">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 5 5 15 19 15 12 5"></polygon>
+            <line x1="5" y1="19" x2="19" y2="19"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="tape-library-filter">
+        <input id="tape-library-search" type="text" class="tape-library-search" placeholder="Search…" aria-label="Search tape library" />
+        <select id="tape-library-format-filter" class="control-select" aria-label="Filter by format">
+          <option value="all" selected>All</option>
+          <option value="tap">TAP</option>
+          <option value="tzx">TZX</option>
+        </select>
+      </div>
+
+      <div id="tape-library-bulk-bar" class="tape-library-bulk-bar" hidden>
+        <span id="tape-library-bulk-count">0 selected</span>
+        <button id="tape-library-bulk-export" class="btn btn-icon" type="button" title="Export selected" aria-label="Export selected">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+        </button>
+        <button id="tape-library-bulk-delete" class="btn btn-icon" type="button" title="Delete selected" aria-label="Delete selected">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+        <button id="tape-library-bulk-clear" class="btn btn-icon" type="button" title="Clear selection" aria-label="Clear selection">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
       <div id="tape-library-list" class="tape-library-list">
         <div class="tape-library-empty">No tapes yet. Click + to add.</div>
       </div>
       <input id="tape-library-input" type="file" accept=".tap,.tzx" multiple hidden />
+    </aside>
+
+    <!-- Panel edge tabs -->
+    <button id="tape-library-toggle" class="btn panel-tab panel-tab-left" type="button" title="Toggle tape library" aria-label="Toggle tape library">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+      </svg>
+      <span class="panel-tab-label">Tape Library</span>
+    </button>
+
+    <button id="controls-panel-toggle" class="btn panel-tab panel-tab-right" type="button" title="Toggle controls panel" aria-label="Toggle controls panel">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="21" x2="4" y2="14"></line>
+        <line x1="4" y1="10" x2="4" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12" y2="3"></line>
+        <line x1="20" y1="21" x2="20" y2="16"></line>
+        <line x1="20" y1="12" x2="20" y2="3"></line>
+        <line x1="1" y1="14" x2="7" y2="14"></line>
+        <line x1="9" y1="8" x2="15" y2="8"></line>
+        <line x1="17" y1="16" x2="23" y2="16"></line>
+      </svg>
+      <span class="panel-tab-label">Controls</span>
+    </button>
+
+    <!-- Controls Panel -->
+    <aside id="controls-panel" class="controls-panel" aria-label="Controls">
+      <div class="tape-library-header">
+        <span class="tape-library-title">Controls</span>
+      </div>
+      <div class="controls-panel-body">
+        <div class="controls-panel-group">
+          <span class="section-label">MACHINE</span>
+          <div class="control-group">
+            <select id="model-select" class="control-select" title="Hardware model">
+              <option value="48k" selected>48K</option>
+              <option value="128k">128K</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <button id="pause-btn" class="btn btn-icon" type="button" title="Pause emulation" aria-label="Pause/Resume">
+              <svg class="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+              <svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+            </button>
+
+            <button id="reset-btn" class="btn btn-icon" type="button" title="Reset system" aria-label="Reset system">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+            </button>
+
+            <button id="save-snapshot-btn" class="btn btn-icon" type="button" title="Save snapshot (.sna)" aria-label="Save snapshot">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="controls-panel-group">
+          <span class="section-label">AUDIO</span>
+          <div class="control-group volume-group">
+            <button id="mute-btn" class="btn btn-icon" type="button" title="Mute/Unmute audio" aria-label="Mute/Unmute audio">
+              <svg id="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path class="vol-wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                <path class="vol-wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+              </svg>
+            </button>
+            <input id="volume-slider" type="range" min="0" max="100" value="50" class="volume-slider" title="Volume" aria-label="Volume slider" />
+            <span id="volume-value" class="volume-value">50%</span>
+          </div>
+        </div>
+
+        <div class="controls-panel-group">
+          <span class="section-label">LOAD</span>
+          <label class="control-file-btn" for="snapshot-input" title="Insert Tape or Snapshot (.tap, .tzx, .sna, .z80)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span class="file-text" id="media-file-text">Insert Tape…</span>
+            <input id="snapshot-input" type="file" accept=".sna,.z80,.tap,.tzx" />
+          </label>
+        </div>
+
+        <div class="controls-panel-group">
+          <span class="section-label">OPTIONS</span>
+          <label
+            class="control-checkbox"
+            title='Types PC punctuation directly, e.g. " sends SYMBOL SHIFT+P for you'
+          >
+            <input id="normal-keyboard-toggle" type="checkbox" checked />
+            <span>Normal keyboard</span>
+          </label>
+          <label
+            class="control-checkbox"
+            title="Play tape loading audio (pilot tone and data screeching) through the speaker while loading tapes"
+          >
+            <input id="tape-sound-toggle" type="checkbox" checked />
+            <span>Loading tones</span>
+          </label>
+          <label
+            class="control-checkbox"
+            title="Fast tape instant load: intercepts standard ROM loader to load tapes instantly"
+          >
+            <input id="fast-tape-toggle" type="checkbox" />
+            <span>Fast load</span>
+          </label>
+        </div>
+      </div>
     </aside>
 
     <!-- Instant Load Confirmation Dialog -->
@@ -84,137 +256,9 @@
 
       <!-- Emulator Frame & Controls -->
       <div class="emulator-panel">
-        <!-- Controls Bar -->
-        <div id="controls" class="controls-bar">
-          <!-- Row 1: Machine Controls -->
-          <div class="controls-row">
-            <div class="control-group-section machine-section">
-              <span class="section-label">MACHINE:</span>
-              <div class="control-group">
-                <select id="model-select" class="control-select" title="Hardware model">
-                  <option value="48k" selected>48K</option>
-                  <option value="128k">128K</option>
-                </select>
-              </div>
-
-              <button id="pause-btn" class="btn btn-icon" type="button" title="Pause emulation" aria-label="Pause/Resume">
-                <svg class="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="6" y="4" width="4" height="16"></rect>
-                  <rect x="14" y="4" width="4" height="16"></rect>
-                </svg>
-                <svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-              </button>
-
-              <button id="reset-btn" class="btn btn-icon" type="button" title="Reset system" aria-label="Reset system">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                  <path d="M3 3v5h5"></path>
-                </svg>
-              </button>
-
-              <button id="save-snapshot-btn" class="btn btn-icon" type="button" title="Save snapshot (.sna)" aria-label="Save snapshot">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                  <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Row 2: Volume on left, Tape to the right -->
-          <div class="controls-row">
-            <div class="control-group-section audio-section">
-              <div class="control-group volume-group">
-                <button id="mute-btn" class="btn btn-icon" type="button" title="Mute/Unmute audio" aria-label="Mute/Unmute audio">
-                  <svg id="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                    <path class="vol-wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                    <path class="vol-wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-                  </svg>
-                </button>
-                <input id="volume-slider" type="range" min="0" max="100" value="50" class="volume-slider" title="Volume" aria-label="Volume slider" />
-                <span id="volume-value" class="volume-value">50%</span>
-              </div>
-            </div>
-
-            <div class="toolbar-divider" aria-hidden="true"></div>
-
-            <div class="control-group-section tape-section">
-              <button id="tape-library-toggle" class="btn btn-icon" type="button" title="Toggle tape library" aria-label="Toggle tape library">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                </svg>
-              </button>
-              <span class="section-label">TAPE:</span>
-              <button id="tape-btn" class="btn btn-icon btn-accent" type="button" title="Play tape" aria-label="Play/Stop tape">
-                <svg class="icon-tape-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-                <svg class="icon-tape-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-                  <rect x="5" y="5" width="14" height="14" rx="1"></rect>
-                </svg>
-              </button>
-
-              <button id="tape-eject-btn" class="btn btn-icon" type="button" title="Eject tape" aria-label="Eject tape">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="12 5 5 15 19 15 12 5"></polygon>
-                  <line x1="5" y1="19" x2="19" y2="19"></line>
-                </svg>
-              </button>
-
-              <div class="control-group">
-                <label class="control-file-btn" for="snapshot-input" title="Insert Tape or Snapshot (.tap, .tzx, .sna, .z80)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                    <polyline points="17 8 12 3 7 8"></polyline>
-                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                  </svg>
-                  <span class="file-text" id="media-file-text">Insert Tape…</span>
-                  <input id="snapshot-input" type="file" accept=".sna,.z80,.tap,.tzx" />
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <!-- Canvas Screen Frame -->
         <div class="screen-frame">
           <canvas id="screen" width="320" height="296" aria-label="ZX Spectrum Screen Output"></canvas>
-        </div>
-
-        <!-- Screen Options Bar (Bottom of Screen) -->
-        <div class="options-bar">
-          <label
-            class="control-checkbox"
-            title='Types PC punctuation directly, e.g. " sends SYMBOL SHIFT+P for you'
-          >
-            <input id="normal-keyboard-toggle" type="checkbox" checked />
-            <span>Normal keyboard</span>
-          </label>
-
-          <div class="toolbar-divider" aria-hidden="true"></div>
-
-          <label
-            class="control-checkbox"
-            title="Play tape loading audio (pilot tone and data screeching) through the speaker while loading tapes"
-          >
-            <input id="tape-sound-toggle" type="checkbox" checked />
-            <span>Loading tones</span>
-          </label>
-
-          <div class="toolbar-divider" aria-hidden="true"></div>
-
-          <label
-            class="control-checkbox"
-            title="Fast tape instant load: intercepts standard ROM loader to load tapes instantly"
-          >
-            <input id="fast-tape-toggle" type="checkbox" />
-            <span>Fast load</span>
-          </label>
         </div>
 
         <!-- Terminal Status Console -->

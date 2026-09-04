@@ -42,6 +42,15 @@ export async function removeTape(id: string): Promise<void> {
   db.close();
 }
 
+export async function removeTapes(ids: string[]): Promise<void> {
+  const db = await openTapesDb();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  const store = tx.objectStore(STORE_NAME);
+  for (const id of ids) store.delete(id);
+  await idbTx(tx);
+  db.close();
+}
+
 export async function getAllTapes(): Promise<TapeEntry[]> {
   const db = await openTapesDb();
   const tx = db.transaction(STORE_NAME, "readonly");

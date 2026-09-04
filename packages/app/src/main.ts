@@ -20,8 +20,12 @@ import { arrayBufferToBase64, base64ToArrayBuffer } from "./utils/base64.js";
 import {
   addTape,
   removeTape,
+  removeTapes,
   getAllTapes,
+  getTape,
+  renameTape,
   type TapeEntry,
+  type TapeFormat,
 } from "./ui/tapeLibrary.js";
 
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
@@ -48,6 +52,17 @@ const tapeLibraryToggle = document.getElementById("tape-library-toggle") as HTML
 const tapeLibraryAddBtn = document.getElementById("tape-library-add-btn") as HTMLButtonElement;
 const tapeLibraryList = document.getElementById("tape-library-list") as HTMLDivElement;
 const tapeLibraryInput = document.getElementById("tape-library-input") as HTMLInputElement;
+const tapeLibrarySearch = document.getElementById("tape-library-search") as HTMLInputElement;
+const tapeLibraryFormatFilter = document.getElementById("tape-library-format-filter") as HTMLSelectElement;
+const tapeLibraryBulkBar = document.getElementById("tape-library-bulk-bar") as HTMLDivElement;
+const tapeLibraryBulkCount = document.getElementById("tape-library-bulk-count") as HTMLSpanElement;
+const tapeLibraryBulkExportBtn = document.getElementById("tape-library-bulk-export") as HTMLButtonElement;
+const tapeLibraryBulkDeleteBtn = document.getElementById("tape-library-bulk-delete") as HTMLButtonElement;
+const tapeLibraryBulkClearBtn = document.getElementById("tape-library-bulk-clear") as HTMLButtonElement;
+
+// Controls panel elements
+const controlsPanel = document.getElementById("controls-panel") as HTMLDivElement;
+const controlsPanelToggle = document.getElementById("controls-panel-toggle") as HTMLButtonElement;
 
 // Confirm load dialog elements
 const confirmLoadModal = document.getElementById("confirm-load-modal") as HTMLDivElement;
@@ -153,7 +168,11 @@ let paused = false;
 let romLoaded = false;
 let tapePlaying = false;
 let libraryOpen = localStorage.getItem("zx_spectrum_library_open") === "true";
+let controlsOpen = localStorage.getItem("zx_spectrum_controls_open") === "true";
 let pendingTapeEntry: TapeEntry | null = null;
+let libraryFilterText = "";
+let libraryFilterFormat: "all" | TapeFormat = "all";
+const selectedTapeIds = new Set<string>();
 
 function currentModel(): MachineModel {
   return modelSelect.value as MachineModel;
@@ -309,14 +328,34 @@ async function restoreSession(): Promise<void> {
     showSetupModal();
   }
   initLibraryState();
+  initControlsState();
   await renderLibrary();
 }
 
 // Tape Library
 async function renderLibrary(): Promise<void> {
-  const tapes = await getAllTapes();
+  const allTapes = await getAllTapes();
+  const tapes = allTapes.filter((t) => {
+    if (libraryFilterFormat !== "all" && t.format !== libraryFilterFormat) return false;
+    if (
+      libraryFilterText &&
+      !t.name.toLowerCase().includes(libraryFilterText.toLowerCase()) &&
+      !t.filename.toLowerCase().includes(libraryFilterText.toLowerCase())
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  // Drop selections for tapes no longer present (e.g. deleted individually).
+  const liveIds = new Set(allTapes.map((t) => t.id));
+  for (const id of [...selectedTapeIds]) if (!liveIds.has(id)) selectedTapeIds.delete(id);
+  updateBulkBar();
+
   if (tapes.length === 0) {
-    tapeLibraryList.innerHTML = `<div class="tape-library-empty">No tapes yet. Click + to add.</div>`;
+    tapeLibraryList.innerHTML = `<div class="tape-library-empty">${
+      allTapes.length === 0 ? "No tapes yet. Click + to add." : "No tapes match."
+    }</div>`;
     return;
   }
   tapeLibraryList.innerHTML = "";
@@ -325,8 +364,14 @@ async function renderLibrary(): Promise<void> {
     item.className = "tape-library-item";
     item.dataset.id = tape.id;
     item.innerHTML = `
+      <input type="checkbox" class="tape-library-item-checkbox" ${selectedTapeIds.has(tape.id) ? "checked" : ""} aria-label="Select ${tape.name}" />
       <span class="tape-library-item-name" title="${tape.filename}">${tape.name}</span>
       <span class="tape-library-item-format">${tape.format}</span>
+      <button class="tape-library-item-edit" title="Rename" aria-label="Rename ${tape.name}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+        </svg>
+      </button>
       <button class="tape-library-item-delete" title="Remove from library" aria-label="Remove ${tape.name}">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -334,17 +379,68 @@ async function renderLibrary(): Promise<void> {
         </svg>
       </button>
     `;
+    item.querySelector(".tape-library-item-checkbox")!.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleTapeSelection(tape.id);
+    });
     item.addEventListener("click", (e) => {
-      if ((e.target as HTMLElement).closest(".tape-library-item-delete")) return;
+      const target = e.target as HTMLElement;
+      if (target.closest(".tape-library-item-delete, .tape-library-item-edit, .tape-library-item-checkbox")) return;
       onLibraryTapeClick(tape);
+    });
+    item.querySelector(".tape-library-item-edit")!.addEventListener("click", (e) => {
+      e.stopPropagation();
+      startRenameTape(item, tape);
     });
     item.querySelector(".tape-library-item-delete")!.addEventListener("click", async (e) => {
       e.stopPropagation();
       await removeTape(tape.id);
+      selectedTapeIds.delete(tape.id);
       await renderLibrary();
     });
     tapeLibraryList.appendChild(item);
   }
+}
+
+/** Swaps a tape's name span for an editable input; commits via renameTape() on
+ * Enter/blur, cancels (re-renders unchanged) on Escape. */
+function startRenameTape(item: HTMLElement, tape: TapeEntry): void {
+  const nameEl = item.querySelector(".tape-library-item-name") as HTMLElement;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "tape-library-search";
+  input.value = tape.name;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let cancelled = false;
+  const commit = async (): Promise<void> => {
+    if (cancelled) return;
+    const newName = input.value.trim();
+    if (newName && newName !== tape.name) await renameTape(tape.id, newName);
+    await renderLibrary();
+  };
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") input.blur();
+    else if (e.key === "Escape") {
+      cancelled = true;
+      void renderLibrary();
+    }
+  });
+  input.addEventListener("blur", () => void commit(), { once: true });
+}
+
+function toggleTapeSelection(id: string): void {
+  if (selectedTapeIds.has(id)) selectedTapeIds.delete(id);
+  else selectedTapeIds.add(id);
+  updateBulkBar();
+}
+
+function updateBulkBar(): void {
+  const n = selectedTapeIds.size;
+  tapeLibraryBulkBar.hidden = n === 0;
+  tapeLibraryBulkCount.textContent = `${n} selected`;
 }
 
 function toggleLibrary(): void {
@@ -352,11 +448,25 @@ function toggleLibrary(): void {
   tapeLibraryPanel.classList.toggle("open", libraryOpen);
   document.body.classList.toggle("library-open", libraryOpen);
   localStorage.setItem("zx_spectrum_library_open", libraryOpen.toString());
+  if (libraryOpen && controlsOpen) toggleControls();
 }
 
 function initLibraryState(): void {
   tapeLibraryPanel.classList.toggle("open", libraryOpen);
   document.body.classList.toggle("library-open", libraryOpen);
+}
+
+function toggleControls(): void {
+  controlsOpen = !controlsOpen;
+  controlsPanel.classList.toggle("open", controlsOpen);
+  document.body.classList.toggle("controls-open", controlsOpen);
+  localStorage.setItem("zx_spectrum_controls_open", controlsOpen.toString());
+  if (controlsOpen && libraryOpen) toggleLibrary();
+}
+
+function initControlsState(): void {
+  controlsPanel.classList.toggle("open", controlsOpen);
+  document.body.classList.toggle("controls-open", controlsOpen);
 }
 
 function stripExtension(filename: string): string {
@@ -692,6 +802,48 @@ tapeEjectBtn?.addEventListener("click", async () => {
 tapeLibraryToggle.addEventListener("click", toggleLibrary);
 tapeLibraryAddBtn.addEventListener("click", () => tapeLibraryInput.click());
 tapeLibraryInput.addEventListener("change", () => onLibraryFileSelect(tapeLibraryInput.files));
+
+tapeLibrarySearch.addEventListener("input", () => {
+  libraryFilterText = tapeLibrarySearch.value;
+  void renderLibrary();
+});
+tapeLibraryFormatFilter.addEventListener("change", () => {
+  libraryFilterFormat = tapeLibraryFormatFilter.value as "all" | TapeFormat;
+  void renderLibrary();
+});
+
+tapeLibraryBulkClearBtn.addEventListener("click", () => {
+  selectedTapeIds.clear();
+  void renderLibrary();
+});
+
+tapeLibraryBulkDeleteBtn.addEventListener("click", async () => {
+  if (selectedTapeIds.size === 0) return;
+  const ok = window.confirm(`Remove ${selectedTapeIds.size} tape(s) from the library?`);
+  if (!ok) return;
+  await removeTapes([...selectedTapeIds]);
+  selectedTapeIds.clear();
+  await renderLibrary();
+});
+
+tapeLibraryBulkExportBtn.addEventListener("click", async () => {
+  for (const id of selectedTapeIds) {
+    const tape = await getTape(id);
+    if (!tape) continue;
+    const blob = new Blob([tape.data], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = tape.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    // Space out downloads — browsers can silently drop rapid-fire auto-downloads.
+    await sleep(150);
+  }
+});
+
+// Controls panel toggle
+controlsPanelToggle.addEventListener("click", toggleControls);
 confirmLoadCancel.addEventListener("click", () => {
   confirmLoadModal.style.display = "none";
   pendingTapeEntry = null;
