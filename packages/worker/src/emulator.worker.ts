@@ -163,6 +163,9 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
     }
     case "reset": {
       currentMachine().reset();
+      if (message.pageRom1 && model === "128k") {
+        machine128k.memory.writePagingRegister(0x10);
+      }
       break;
     }
   }

@@ -398,14 +398,17 @@ async function confirmInstantLoad(): Promise<void> {
   confirmLoadModal.style.display = "none";
   pendingTapeEntry = null;
 
+  const model = currentModel();
+
   client.stopTape();
-  client.reset();
+  // pageRom1: for 128K, skip the boot-into-menu path entirely (see EmulatorClient.reset)
+  // — cold-boots straight into 48 BASIC, exactly like Machine48k, so both models share
+  // the identical flow below instead of needing separate menu-navigation keystrokes.
+  client.reset(model === "128k");
 
   const tapeData = entry.data.slice(0);
   const sessionData = entry.data.slice(0);
   client.loadTape(entry.format, tapeData);
-
-  const model = currentModel();
 
   client.setFastTapeLoad(true);
   if (fastTapeToggle) fastTapeToggle.checked = true;
@@ -421,22 +424,14 @@ async function confirmInstantLoad(): Promise<void> {
   // too: you press Play, then type the loader command.
   client.playTape();
 
-  if (model === "48k") {
-    await sleep(200);
-    await typeText('load ""\n');
-  } else {
-    // 128K boot menu: "Tape Loader" is the default-highlighted item after reset,
-    // so Enter alone selects it. Digit keys are hotkeys straight to the ROM's other
-    // four entries (128 BASIC/Calculator/48 BASIC/Tape Tester), not "select the
-    // Nth displayed row" — "3" actually jumps to 48 BASIC, not Tape Loader.
-    // The 128K boot sequence (RAM check, menu draw) takes much longer to reach its
-    // keyboard-polling loop than 48K's near-instant BASIC prompt; 200ms isn't enough
-    // real time and the Enter keypress arrives before the ROM is listening, silently
-    // dropped — the tape then just spins with nothing reading it. 1200ms is what the
-    // project's own fast-load test (fastTapeLoad.test.ts) waits before pressing Enter.
-    await sleep(1200);
-    await typeText("\n");
-  }
+  // 1800ms (90 frames) is what the project's own fast-load test (fastTapeLoad.test.ts)
+  // waits for either ROM to boot to its keyboard-polling ready state before typing.
+  await sleep(1800);
+  // "j" is the single physical key bound to the LOAD keyword on the K-cursor (BASIC's
+  // keyword-entry mode at the start of a line) — typing "load" letter-by-letter would
+  // send L (itself a keyword, LET), then O/A/D as literal letters in the L-cursor mode
+  // that follows a keyword, spelling nonsense like "LET oad" instead of invoking LOAD.
+  await typeText('j""\n');
 
   if (mediaFileText) mediaFileText.textContent = entry.filename;
   await saveSessionMedia({ filename: entry.filename, format: entry.format, data: sessionData });
@@ -820,7 +815,11 @@ async function typeText(text: string): Promise<void> {
       for (const { row, bit } of plainKeys) client.sendKey(row, bit, true);
       await sleep(60);
       for (const { row, bit } of plainKeys) client.sendKey(row, bit, false);
-      await sleep(40);
+      // Long enough gap that the ROM's keyboard scan reliably sees a released matrix
+      // before the next key lands — two identical taps in a row (e.g. the pair of
+      // quotes in LOAD "") with only 40ms between them have been observed to get
+      // misread as a different symbol, presumably a debounce/repeat quirk.
+      await sleep(120);
       continue;
     }
     const symbol = SYMBOL_CHAR_MAP[ch];
@@ -831,7 +830,7 @@ async function typeText(text: string): Promise<void> {
     await sleep(60);
     client.sendKey(symbol.row, symbol.bit, false);
     client.sendKey(SYMBOL_SHIFT.row, SYMBOL_SHIFT.bit, false);
-    await sleep(40);
+    await sleep(120);
   }
 }
 

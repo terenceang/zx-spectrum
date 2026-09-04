@@ -114,8 +114,17 @@ export class EmulatorClient {
     this.send({ type: "resume" });
   }
 
-  reset(): void {
-    this.send({ type: "reset" });
+  /** `pageRom1`: for the 128K machine, force ROM 1 (48 BASIC) paged in from the
+   * first instruction after reset, bypassing the normal ROM 0 boot (the 128 menu).
+   * Used by the tape-library instant-load flow: navigating the 128 menu's "Tape
+   * Loader" option first (real hardware's only path to a tape load) leaves the
+   * machine in a state where some multi-stage custom loaders hang partway through
+   * (confirmed: the fast-load trap correctly loads the first blocks, then the
+   * loaded code never continues) — cold-booting straight into ROM 1, identical to
+   * how Machine48k boots, doesn't have this problem and lets 48K and 128K instant-load
+   * share the exact same post-reset flow (see confirmInstantLoad in main.ts). */
+  reset(pageRom1 = false): void {
+    this.send({ type: "reset", pageRom1 });
   }
 
   /** Call once per rAF tick on the main thread. Returns the latest complete frame,

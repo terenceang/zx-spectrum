@@ -16,7 +16,11 @@ export type HostToWorkerMessage =
   | { type: "keyEvent"; row: number; bit: number; down: boolean }
   | { type: "pause" }
   | { type: "resume" }
-  | { type: "reset" };
+  /** `pageRom1`: for the 128K machine, force ROM 1 (48 BASIC) paged in from the very
+   * first instruction after reset, instead of the normal cold-boot into ROM 0 (the
+   * 128 menu). Used by the tape-library instant-load flow — see EmulatorClient.reset
+   * for why. No effect on the 48K machine (it has no ROM paging). */
+  | { type: "reset"; pageRom1?: boolean };
 
 export type WorkerToHostMessage =
   | { type: "ready" }
