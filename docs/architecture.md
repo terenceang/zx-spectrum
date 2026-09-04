@@ -182,8 +182,12 @@ than reimplementing the lock-free read logic.
 The app never bundles Sinclair/Amstrad ROM images. Users supply their own ROM file(s)
 via the file picker on first run; ROM bytes are cached in `localStorage`
 (`packages/app/src/ui/romStorage.ts`) per machine model so the prompt only happens
-once per browser. Active snapshot and tape sessions are stored in IndexedDB
-(`packages/app/src/ui/sessionStore.ts`) to restore emulator state seamlessly across page reloads.
+once per browser. Active snapshot/tape sessions (`sessionStore.ts`) and the saved
+tape library (`tapeLibrary.ts`) are stored in IndexedDB to restore emulator state
+and let users re-load a tape without re-picking the file. Both share one small
+promise-wrapping helper (`packages/app/src/utils/idb.ts`) for opening a database
+and awaiting a request/transaction, rather than each hand-rolling the same
+`IDBOpenDBRequest`/`IDBTransaction` callback boilerplate.
 
 ## Deployment (Proxmox LXC)
 
