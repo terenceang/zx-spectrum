@@ -2,6 +2,7 @@
  * page restores the machine and media state with full UI reflection. */
 
 import type { MediaFormat } from "@zx-spectrum/core";
+import { idbRequest, idbTx, openDb } from "../utils/idb.js";
 
 export interface StoredMedia {
   filename: string;
@@ -12,40 +13,22 @@ export interface StoredMedia {
 const DB_NAME = "zx-spectrum-session";
 const STORE_NAME = "session";
 
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(STORE_NAME);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
 export async function saveSessionMedia(media: StoredMedia | null): Promise<void> {
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readwrite");
-    if (media) {
-      tx.objectStore(STORE_NAME).put(media, "last_media");
-    } else {
-      tx.objectStore(STORE_NAME).delete("last_media");
-    }
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  const db = await openDb(DB_NAME, STORE_NAME);
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  if (media) {
+    tx.objectStore(STORE_NAME).put(media, "last_media");
+  } else {
+    tx.objectStore(STORE_NAME).delete("last_media");
+  }
+  await idbTx(tx);
   db.close();
 }
 
 export async function loadSessionMedia(): Promise<StoredMedia | null> {
-  const db = await openDb();
-  const result = await new Promise<StoredMedia | null>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const request = tx.objectStore(STORE_NAME).get("last_media");
-    request.onsuccess = () => resolve((request.result as StoredMedia | undefined) ?? null);
-    request.onerror = () => reject(request.error);
-  });
+  const db = await openDb(DB_NAME, STORE_NAME);
+  const tx = db.transaction(STORE_NAME, "readonly");
+  const result = await idbRequest(tx.objectStore(STORE_NAME).get("last_media"));
   db.close();
-  return result;
+  return (result as StoredMedia | undefined) ?? null;
 }
