@@ -1,9 +1,13 @@
 import type { CpuState } from "../cpu/z80.js";
 import { REGISTERS_BYTE_LENGTH, RegIndex, WORDS_LENGTH, WordIndex } from "../cpu/registers.js";
+import type { BaseMachine } from "../machines/baseMachine.js";
+import type { Machine128k } from "../machines/machine128k.js";
+import type { Machine48k } from "../machines/machine48k.js";
+import type { MachinePlus3 } from "../machines/machinePlus3.js";
 import { RAM_48K_SIZE, ROM_PAGE_SIZE } from "../memory/constants.js";
-import { decompressZ80Rle } from "./rle.js";
+import { compressZ80Rle, decompressZ80Rle } from "./rle.js";
 
-export type Z80HardwareMode = "48k" | "128k" | "other";
+export type Z80HardwareMode = "48k" | "128k" | "plus3" | "other";
 
 export interface ParsedZ80Snapshot {
   version: 1 | 2 | 3;
@@ -19,6 +23,7 @@ export interface ParsedZ80Snapshot {
    * the .z80 spec's page-number table) — what Machine128k will need in Phase 3. */
   banks?: { pageNumber: number; data: Uint8Array }[];
   port7ffd?: number;
+  port1ffd?: number | undefined;
   ayRegisters?: Uint8Array;
 }
 
@@ -90,15 +95,21 @@ export function parseZ80(bytes: Uint8Array): ParsedZ80Snapshot {
   const hardwareModeByte = bytes[34]!;
   const port7ffd = bytes[35]!;
   const ayRegisters = bytes.slice(39, 39 + 16);
+  let port1ffd: number | undefined;
+  if (additionalLength >= 55 && bytes.length > 86) {
+    port1ffd = bytes[86]!;
+  }
 
   const hardwareMode: Z80HardwareMode =
     hardwareModeByte === 0 || hardwareModeByte === 1
       ? "48k"
       : hardwareModeByte === 3 || hardwareModeByte === 4
         ? "128k"
-        : hardwareModeByte === 2
-          ? "48k" // SamRam: treat as 48K-shaped for now, unsupported hardware
-          : "other";
+        : hardwareModeByte === 7 || hardwareModeByte === 8
+          ? "plus3"
+          : hardwareModeByte === 2
+            ? "48k" // SamRam: treat as 48K-shaped for now, unsupported hardware
+            : "other";
 
   const pageBlocksStart = 32 + additionalLength;
   const banks: { pageNumber: number; data: Uint8Array }[] = [];
@@ -125,10 +136,9 @@ export function parseZ80(bytes: Uint8Array): ParsedZ80Snapshot {
       else if (pageNumber === 5) ram.set(data, 0x8000); // 0xC000-0xFFFF
     }
   } else {
-    // 128K: reconstruct the view for whichever bank the header's paging register
+    // 128K / +3: reconstruct the view for whichever bank the header's paging register
     // has in each fixed/paged slot (bank 5 always at 0x4000, bank 2 always at
-    // 0x8000, the paged bank at 0xC000) — full multi-bank state lives in `banks`
-    // for Machine128k (Phase 3) to use directly.
+    // 0x8000, the paged bank at 0xC000).
     const pagedBank = port7ffd & 0x07;
     for (const { pageNumber, data } of banks) {
       const bankNumber = pageNumber - 3;
@@ -146,6 +156,7 @@ export function parseZ80(bytes: Uint8Array): ParsedZ80Snapshot {
     ram,
     banks,
     port7ffd,
+    port1ffd,
     ayRegisters,
   };
 }
@@ -155,4 +166,166 @@ function padTo(data: Uint8Array, length: number): Uint8Array {
   const out = new Uint8Array(length);
   out.set(data.subarray(0, length));
   return out;
+}
+
+function writePageBlock(pageNumber: number, data: Uint8Array): Uint8Array {
+  const compressed = compressZ80Rle(data);
+  let len = compressed.length;
+  let payload = compressed;
+  if (len >= ROM_PAGE_SIZE) {
+    len = 0xffff;
+    payload = data;
+  }
+  const block = new Uint8Array(3 + payload.length);
+  block[0] = len & 0xff;
+  block[1] = (len >> 8) & 0xff;
+  block[2] = pageNumber;
+  block.set(payload, 3);
+  return block;
+}
+
+function writeBaseHeader(cpu: CpuState, border: number): Uint8Array {
+  const h = new Uint8Array(30);
+  const bytes = cpu.registerBytes;
+  const words = cpu.registerWords;
+
+  h[0] = bytes[RegIndex.A]!;
+  h[1] = bytes[RegIndex.F]!;
+  h[2] = bytes[RegIndex.C]!;
+  h[3] = bytes[RegIndex.B]!;
+  h[4] = bytes[RegIndex.L]!;
+  h[5] = bytes[RegIndex.H]!;
+  h[6] = 0; // PC = 0 triggers v2/v3
+  h[7] = 0;
+  const sp = words[WordIndex.SP]!;
+  h[8] = sp & 0xff;
+  h[9] = (sp >> 8) & 0xff;
+  h[10] = bytes[RegIndex.I]!;
+  const r = bytes[RegIndex.R]!;
+  h[11] = r & 0x7f;
+  h[12] = ((r & 0x80) >> 7) | ((border & 0x07) << 1);
+  h[13] = bytes[RegIndex.E]!;
+  h[14] = bytes[RegIndex.D]!;
+  h[15] = bytes[RegIndex.C_]!;
+  h[16] = bytes[RegIndex.B_]!;
+  h[17] = bytes[RegIndex.E_]!;
+  h[18] = bytes[RegIndex.D_]!;
+  h[19] = bytes[RegIndex.L_]!;
+  h[20] = bytes[RegIndex.H_]!;
+  h[21] = bytes[RegIndex.A_]!;
+  h[22] = bytes[RegIndex.F_]!;
+  const iy = words[WordIndex.IY]!;
+  h[23] = iy & 0xff;
+  h[24] = (iy >> 8) & 0xff;
+  const ix = words[WordIndex.IX]!;
+  h[25] = ix & 0xff;
+  h[26] = (ix >> 8) & 0xff;
+  h[27] = cpu.iff1 ? 1 : 0;
+  h[28] = cpu.iff2 ? 1 : 0;
+  h[29] = cpu.im & 0x03;
+  return h;
+}
+
+function writeExtHeader(
+  pc: number,
+  hardwareModeByte: number,
+  port7ffd = 0,
+  port1ffd = 0,
+  aySelectedReg = 0,
+  ayRegisters?: Uint8Array,
+): Uint8Array {
+  // Extension length: 55 bytes
+  const ext = new Uint8Array(2 + 55);
+  ext[0] = 55;
+  ext[1] = 0;
+  ext[2] = pc & 0xff;
+  ext[3] = (pc >> 8) & 0xff;
+  ext[4] = hardwareModeByte;
+  ext[5] = port7ffd;
+  ext[6] = 0;
+  ext[7] = 0;
+  ext[8] = aySelectedReg & 0x0f;
+  if (ayRegisters) {
+    for (let i = 0; i < 16; i++) {
+      ext[9 + i] = ayRegisters[i] ?? 0;
+    }
+  }
+  // Byte 86 in file is offset 54 in extension (2 + 54 = 56 in ext array)
+  ext[2 + 54] = port1ffd;
+  return ext;
+}
+
+function assembleZ80File(
+  cpu: CpuState,
+  border: number,
+  hardwareModeByte: number,
+  port7ffd: number,
+  port1ffd: number,
+  aySelectedReg: number,
+  ayRegisters: Uint8Array | undefined,
+  pageBlocks: Uint8Array[],
+): Uint8Array {
+  const baseHeader = writeBaseHeader(cpu, border);
+  const pc = cpu.registerWords[WordIndex.PC]!;
+  const extHeader = writeExtHeader(pc, hardwareModeByte, port7ffd, port1ffd, aySelectedReg, ayRegisters);
+  const totalLength =
+    baseHeader.length +
+    extHeader.length +
+    pageBlocks.reduce((acc, p) => acc + p.length, 0);
+
+  const out = new Uint8Array(totalLength);
+  out.set(baseHeader, 0);
+  out.set(extHeader, baseHeader.length);
+  let offset = baseHeader.length + extHeader.length;
+  for (const p of pageBlocks) {
+    out.set(p, offset);
+    offset += p.length;
+  }
+  return out;
+}
+
+export function writeZ8048k(machine: Machine48k, border: number): Uint8Array {
+  const cpu = machine.cpu.getState();
+  const ram = machine.memory.readRam();
+  const page8 = writePageBlock(8, ram.subarray(0, ROM_PAGE_SIZE));
+  const page4 = writePageBlock(4, ram.subarray(ROM_PAGE_SIZE, ROM_PAGE_SIZE * 2));
+  const page5 = writePageBlock(5, ram.subarray(ROM_PAGE_SIZE * 2, ROM_PAGE_SIZE * 3));
+  return assembleZ80File(cpu, border, 0, 0, 0, 0, undefined, [page8, page4, page5]);
+}
+
+export function writeZ80128k(machine: Machine128k, border: number): Uint8Array {
+  const cpu = machine.cpu.getState();
+  const port7ffd = machine.memory.port7ffd;
+  const aySelected = machine.ay.selectedRegisterIndex;
+  const ayRegs = machine.ay.getRegisters();
+
+  const pages: Uint8Array[] = [];
+  for (let bank = 0; bank < 8; bank++) {
+    pages.push(writePageBlock(bank + 3, machine.memory.peekBank(bank)));
+  }
+  return assembleZ80File(cpu, border, 4, port7ffd, 0, aySelected, ayRegs, pages);
+}
+
+export function writeZ80Plus3(machine: MachinePlus3, border: number): Uint8Array {
+  const cpu = machine.cpu.getState();
+  const port7ffd = machine.memory.port7ffd;
+  const port1ffd = machine.memory.port1ffd;
+  const aySelected = machine.ay.selectedRegisterIndex;
+  const ayRegs = machine.ay.getRegisters();
+
+  const pages: Uint8Array[] = [];
+  for (let bank = 0; bank < 8; bank++) {
+    pages.push(writePageBlock(bank + 3, machine.memory.peekBank(bank)));
+  }
+  return assembleZ80File(cpu, border, 7, port7ffd, port1ffd, aySelected, ayRegs, pages);
+}
+
+export function writeZ80(machine: BaseMachine, border: number): Uint8Array {
+  if ("fdc" in machine) {
+    return writeZ80Plus3(machine as MachinePlus3, border);
+  }
+  if ("ay" in machine) {
+    return writeZ80128k(machine as Machine128k, border);
+  }
+  return writeZ8048k(machine as Machine48k, border);
 }

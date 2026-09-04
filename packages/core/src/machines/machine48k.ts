@@ -27,6 +27,11 @@ export class Machine48k extends BaseMachine<Memory48k> {
     return this.mixAudio(beeper, sampleCount);
   }
 
+  getStereoAudioSamples(sampleCount: number, _sampleRate?: number): Float32Array {
+    const beeper = this.ula.beeper.renderFrame(this.frameTStateBudget, sampleCount);
+    return this.mixAudioStereo(beeper, sampleCount);
+  }
+
   readPort(port: number): number {
     const isUlaPort = (port & 0x01) === 0;
     if (isUlaPort) this.applyContentionIfNeeded(port);

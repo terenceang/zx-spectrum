@@ -49,6 +49,19 @@ export const ULA_128K_PROFILE: UlaTimingProfile = {
   borderSideColumns: 4,
 };
 
+/** The +3 timing profile is identical in scanlines/geometry to the 128K, with an
+ * interrupt duration of 32 T-states. */
+export const ULA_PLUS3_PROFILE: UlaTimingProfile = {
+  tStatesPerLine: 228,
+  linesPerFrame: 311,
+  firstContendedTstate: 14361,
+  contendedLines: 192,
+  interruptLength: 32,
+  borderTopLines: 48,
+  borderBottomLines: 56,
+  borderSideColumns: 4,
+};
+
 export function tStatesPerFrame(profile: UlaTimingProfile): number {
   return profile.tStatesPerLine * profile.linesPerFrame;
 }

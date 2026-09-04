@@ -192,15 +192,21 @@ machine state by hand. See "Snapshot save/load" in `docs/architecture.md`.
 
 See "UI layout" in `docs/architecture.md`.
 
-## Phase 4 — +3 support
+## Phase 4 — +3 support, Snapshot Export (.z80), Save States, AY Stereo Audio (done)
 
-- [ ] Second paging port (`0x1ffd`) + special all-RAM modes in `MemoryPlus3`
-- [ ] `UlaPlus3` timing profile
-- [ ] Scoped `Fdc765` (uPD765) — only the commands +3DOS software actually uses
-- [ ] `.dsk` loader (standard + extended CPC formats)
-- [ ] +3 ROM set, disk insert/eject UI
+- [x] Second paging port (`0x1ffd`) + 4 special all-RAM modes in `MemoryPlus3` with Amstrad +3 contention (banks 4-7)
+- [x] `ULA_PLUS3_PROFILE` timing profile (228 T-states/line x 311 lines, 32 T-state interrupt)
+- [x] Scoped `Fdc765` (NEC uPD765A) — Specify, Sense Drive Status, Recalibrate, Sense Interrupt Status, Seek, Read Data, Write Data, Read ID
+- [x] `.dsk` parser and serializer (Standard CPC "MV - CPC" + Extended CPC formats)
+- [x] `MachinePlus3` composition with +3 contention, AY-3-8912, and uPD765 FDC
+- [x] +3 ROM set handling (4 separate 16KB ROMs 0-3 or single 64KB bundle), floppy drive UI (activity LED, track indicator, insert/eject)
+- [x] `.z80` v3 snapshot export (`writeZ8048k`, `writeZ80128k`, `writeZ80Plus3`) with memory block RLE compression and format selection (.sna / .z80) in UI & MCP
+- [x] Save states system: 5-slot IndexedDB storage with canvas thumbnail preview and timestamp, F5 quick save, F8 quick load, direct external `.z80`/`.sna` loading into slot, and slot export (.z80 / .sna)
+- [x] Snapshot panel consolidation: unified all memory and snapshot actions into the left panel's Snapshots & Memory tab, matching styling, button metrics, and typography with the Controls and Tape library panels
+- [x] Worker on-the-fly format conversion (`exportState`): converts stored slot binaries between `.sna` and `.z80` formats seamlessly upon export
+- [x] AY stereo audio: ACB (+3 default), ABC (Melodik), and mono modes with stereo AudioWorklet transport
 
-**Demo**: boot +3 BASIC/+3DOS from a `.dsk` image and load a disk-based game.
+**Demo**: boot +3 BASIC/+3DOS from a `.dsk` image, load disk software, save/load slot states with F5/F8, and export `.z80` snapshots.
 
 ## Outstanding
 

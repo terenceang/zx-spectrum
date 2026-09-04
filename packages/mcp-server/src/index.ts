@@ -10,6 +10,7 @@ import {
   type BaseMachine,
   Machine128k,
   Machine48k,
+  MachinePlus3,
   type MachineModel,
   SNAPSHOT_EXTENSIONS,
   SPECTRUM_KEY_MATRIX,
@@ -17,12 +18,15 @@ import {
   TAPE_EXTENSIONS,
   applySnapshotTo128k,
   applySnapshotTo48k,
+  applySnapshotToPlus3,
+  parseDsk,
   parseSna,
   parseTap,
   parseTzx,
   parseZ80,
   writeSna128k,
   writeSna48k,
+  writeZ80,
 } from "../../core/dist/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -53,31 +57,56 @@ server.registerTool(
     description:
       "Loads a ROM image and (re)creates the machine. For 48k, romPath is the single " +
       "16384-byte ROM. For 128k, romPath is ROM0 (128 editor) and rom1Path is ROM1 (48 " +
-      "BASIC) — both 16384 bytes each, as separate files (e.g. 128-0.rom/128-1.rom).",
+      "BASIC) — both 16384 bytes each. For plus3, romPath can be a 65536-byte bundle or " +
+      "ROM0, with optional rom1Path, rom2Path, and rom3Path (each 16384 bytes).",
     inputSchema: {
-      model: z.enum(["48k", "128k"]),
+      model: z.enum(["48k", "128k", "plus3"]),
       romPath: z.string(),
       rom1Path: z.string().optional(),
+      rom2Path: z.string().optional(),
+      rom3Path: z.string().optional(),
       ...instanceIdSchema,
     },
   },
-  async ({ model: newModel, romPath, rom1Path, instanceId }) => {
+  async ({ model: newModel, romPath, rom1Path, rom2Path, rom3Path, instanceId }) => {
     const target = resolveInstance(instanceId);
+    let romBytes: Buffer;
+    if (newModel === "48k") {
+      romBytes = readFileSync(romPath);
+    } else if (newModel === "128k") {
+      if (!rom1Path) throw new Error("128k requires both romPath (ROM0) and rom1Path (ROM1).");
+      romBytes = Buffer.concat([readFileSync(romPath), readFileSync(rom1Path)]);
+    } else {
+      if (rom1Path && rom2Path && rom3Path) {
+        romBytes = Buffer.concat([
+          readFileSync(romPath),
+          readFileSync(rom1Path),
+          readFileSync(rom2Path),
+          readFileSync(rom3Path),
+        ]);
+      } else {
+        romBytes = readFileSync(romPath);
+      }
+      if (romBytes.byteLength !== 65536) {
+        throw new Error(`plus3 ROM must be 65536 bytes (got ${romBytes.byteLength} bytes).`);
+      }
+    }
+
     if (target) {
-      if (newModel === "128k" && !rom1Path) throw new Error("128k requires both romPath (ROM0) and rom1Path (ROM1).");
-      const rom0 = readFileSync(romPath);
-      const romBytes = newModel === "128k" ? Buffer.concat([rom0, readFileSync(rom1Path!)]) : rom0;
       await callInstance(target, "loadRom", { model: newModel, romBase64: romBytes.toString("base64") });
       return { content: [{ type: "text", text: `Loaded ${newModel} ROM into instance "${target}".` }] };
     }
     if (newModel === "48k") {
       const m = new Machine48k();
-      m.loadRom(new Uint8Array(readFileSync(romPath)));
+      m.loadRom(new Uint8Array(romBytes));
+      machine = m;
+    } else if (newModel === "128k") {
+      const m = new Machine128k();
+      m.loadRoms(new Uint8Array(romBytes.subarray(0, 16384)), new Uint8Array(romBytes.subarray(16384, 32768)));
       machine = m;
     } else {
-      if (!rom1Path) throw new Error("128k requires both romPath (ROM0) and rom1Path (ROM1).");
-      const m = new Machine128k();
-      m.loadRoms(new Uint8Array(readFileSync(romPath)), new Uint8Array(readFileSync(rom1Path)));
+      const m = new MachinePlus3();
+      m.loadRoms(new Uint8Array(romBytes));
       machine = m;
     }
     model = newModel;
@@ -112,7 +141,8 @@ server.registerTool(
     const bytes = new Uint8Array(readFileSync(path));
     const snapshot = format === "sna" ? parseSna(bytes) : parseZ80(bytes);
     if (model === "48k") applySnapshotTo48k(m as Machine48k, snapshot);
-    else applySnapshotTo128k(m as Machine128k, snapshot);
+    else if (model === "128k") applySnapshotTo128k(m as Machine128k, snapshot);
+    else applySnapshotToPlus3(m as MachinePlus3, snapshot);
     return { content: [{ type: "text", text: `Loaded snapshot "${path}".` }] };
   },
 );
@@ -307,27 +337,82 @@ server.registerTool(
   {
     title: "Save snapshot",
     description:
-      "Captures the current machine state as a .sna file (48K or 128K format, matching " +
-      "whichever model is currently active) and writes it to savePath. Uses a connected " +
-      "browser instance if one is live (see list_instances), otherwise the headless machine.",
-    inputSchema: { ...instanceIdSchema, savePath: z.string() },
+      "Captures the current machine state as a .sna or .z80 file and writes it to savePath. " +
+      "Uses a connected browser instance if one is live (see list_instances), otherwise the headless machine.",
+    inputSchema: {
+      format: z.enum(["sna", "z80"]).default("sna"),
+      savePath: z.string(),
+      ...instanceIdSchema,
+    },
   },
-  async ({ instanceId, savePath }) => {
+  async ({ format, savePath, instanceId }) => {
     const target = resolveInstance(instanceId);
     let dataBase64: string;
     if (target) {
-      ({ dataBase64 } = (await callInstance(target, "saveSnapshot")) as {
-        format: "sna";
+      const res = (await callInstance(target, "saveSnapshot", { format })) as {
+        format: string;
         dataBase64: string;
-      });
+      };
+      dataBase64 = res.dataBase64;
     } else {
       const m = requireMachine();
       const border = m.ula.borderColor;
-      const bytes = model === "48k" ? writeSna48k(m as Machine48k, border) : writeSna128k(m as Machine128k, border);
+      let bytes: Uint8Array;
+      if (format === "z80") {
+        bytes = writeZ80(m, border);
+      } else {
+        if (model === "plus3") {
+          throw new Error("SNA format does not support +3 paging. Use format: 'z80'.");
+        }
+        bytes = model === "48k" ? writeSna48k(m as Machine48k, border) : writeSna128k(m as Machine128k, border);
+      }
       dataBase64 = Buffer.from(bytes).toString("base64");
     }
     writeFileSync(savePath, Buffer.from(dataBase64, "base64"));
     return { content: [{ type: "text", text: `Saved snapshot to ${savePath}` }] };
+  },
+);
+
+server.registerTool(
+  "insert_disk",
+  {
+    title: "Insert disk",
+    description: "Inserts a .dsk floppy disk image into drive A: (+3 model only).",
+    inputSchema: { path: z.string(), ...instanceIdSchema },
+  },
+  async ({ path, instanceId }) => {
+    const target = resolveInstance(instanceId);
+    if (target) {
+      const dataBase64 = readFileSync(path).toString("base64");
+      await callInstance(target, "loadDisk", { dataBase64 });
+      return { content: [{ type: "text", text: `Inserted disk "${path}" into instance "${target}".` }] };
+    }
+    const m = requireMachine();
+    if (model !== "plus3") throw new Error("insert_disk requires a +3 machine.");
+    const bytes = new Uint8Array(readFileSync(path));
+    const dsk = parseDsk(bytes);
+    (m as MachinePlus3).loadDisk(dsk);
+    return { content: [{ type: "text", text: `Inserted disk "${path}".` }] };
+  },
+);
+
+server.registerTool(
+  "eject_disk",
+  {
+    title: "Eject disk",
+    description: "Ejects the floppy disk from drive A: (+3 model only).",
+    inputSchema: instanceIdSchema,
+  },
+  async ({ instanceId }) => {
+    const target = resolveInstance(instanceId);
+    if (target) {
+      await callInstance(target, "ejectDisk");
+      return { content: [{ type: "text", text: `Ejected disk on instance "${target}".` }] };
+    }
+    const m = requireMachine();
+    if (model !== "plus3") throw new Error("eject_disk requires a +3 machine.");
+    (m as MachinePlus3).ejectDisk();
+    return { content: [{ type: "text", text: "Disk ejected." }] };
   },
 );
 

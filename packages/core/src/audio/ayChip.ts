@@ -22,7 +22,10 @@ const VOLUME_TABLE = buildVolumeTable();
 
 const REGISTER_COUNT = 14; // R0-R13; R14/R15 (I/O ports) aren't wired on the Spectrum
 
+export type AyStereoMode = "mono" | "acb" | "abc";
+
 export class AyChip {
+  stereoMode: AyStereoMode = "acb";
   private readonly registers = new Uint8Array(REGISTER_COUNT);
   private selectedRegister = 0;
 
@@ -84,6 +87,15 @@ export class AyChip {
   /** Port 0xFFFD read: the currently selected register's value. */
   readData(): number {
     return this.selectedRegister < REGISTER_COUNT ? this.registers[this.selectedRegister]! : 0xff;
+  }
+
+  get selectedRegisterIndex(): number {
+    return this.selectedRegister;
+  }
+
+  /** Returns a copy of the 14 internal registers (for snapshot saving). */
+  getRegisters(): Uint8Array {
+    return this.registers.slice();
   }
 
   /** Loads all 14 registers directly (snapshot loading) and restarts the envelope,
@@ -211,6 +223,58 @@ export class AyChip {
     }
 
     return out;
+  }
+
+  /** Renders `sampleCount` stereo samples, applying the configured channel panning
+   * (mono, authentic +3 ACB stereo, or ABC Melodik stereo). */
+  renderFrameStereo(
+    sampleCount: number,
+    sampleRate: number,
+    mode: AyStereoMode = this.stereoMode,
+  ): { left: Float32Array; right: Float32Array } {
+    const left = new Float32Array(sampleCount);
+    const right = new Float32Array(sampleCount);
+    const mixer = this.registers[7]!;
+
+    for (let i = 0; i < sampleCount; i++) {
+      this.clockAccumulator += AY_CLOCK_HZ;
+      while (this.clockAccumulator >= sampleRate) {
+        this.clockAccumulator -= sampleRate;
+        this.tick();
+      }
+
+      const chSamples = [0, 0, 0];
+      for (let ch = 0; ch < 3; ch++) {
+        const toneEnabled = (mixer & (1 << ch)) === 0;
+        const noiseEnabled = (mixer & (1 << (3 + ch))) === 0;
+        const toneBit = toneEnabled ? this.toneOutput[ch]! : 1;
+        const noiseBit = noiseEnabled ? this.noiseOutput : 1;
+        const combined = toneBit & noiseBit;
+
+        const volReg = this.registers[8 + ch]!;
+        const level = (volReg & 0x10) !== 0 ? this.envelopeLevel : volReg & 0x0f;
+        const amplitude = VOLUME_TABLE[level]!;
+        chSamples[ch] = combined ? amplitude : -amplitude;
+      }
+
+      const a = chSamples[0]!;
+      const b = chSamples[1]!;
+      const c = chSamples[2]!;
+
+      if (mode === "mono") {
+        const mono = (a + b + c) / 3;
+        left[i] = mono;
+        right[i] = mono;
+      } else if (mode === "acb") {
+        left[i] = (a + c * 0.7) / 1.7;
+        right[i] = (b + c * 0.7) / 1.7;
+      } else {
+        left[i] = (a + b * 0.7) / 1.7;
+        right[i] = (c + b * 0.7) / 1.7;
+      }
+    }
+
+    return { left, right };
   }
 }
 

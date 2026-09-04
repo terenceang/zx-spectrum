@@ -1,47 +1,65 @@
-import type { MachineModel, SnapshotFormat, TapeFormat } from "@zx-spectrum/core";
+import type {
+  DiskFormat,
+  MachineModel,
+  SnapshotFormat,
+  TapeFormat,
+} from "@zx-spectrum/core";
 
-export type { MachineModel };
+export type { MachineModel, SnapshotFormat, TapeFormat, DiskFormat };
 
 export type HostToWorkerMessage =
   | { type: "init"; frameBuffer: SharedArrayBuffer | null; audioBuffer: SharedArrayBuffer | null }
-  /** `rom` is a single 16384-byte image for "48k", or two 16384-byte ROMs
-   * concatenated (rom0 then rom1) into a 32768-byte buffer for "128k". */
   | { type: "loadRom"; model: MachineModel; rom: ArrayBuffer }
   | { type: "loadSnapshot"; format: SnapshotFormat; data: ArrayBuffer }
   | { type: "loadTape"; format: TapeFormat; data: ArrayBuffer }
   | { type: "playTape" }
   | { type: "stopTape" }
+  | { type: "loadDisk"; data: ArrayBuffer }
+  | { type: "ejectDisk" }
   | { type: "setTapeSound"; enabled: boolean }
   | { type: "setFastTapeLoad"; enabled: boolean }
+  | { type: "setAudioMode"; mode: "mono" | "acb" | "abc" }
   | { type: "keyEvent"; row: number; bit: number; down: boolean }
   | { type: "pause" }
   | { type: "resume" }
-  /** `pageRom1`: for the 128K machine, force ROM 1 (48 BASIC) paged in from the very
-   * first instruction after reset, instead of the normal cold-boot into ROM 0 (the
-   * 128 menu). Used by the tape-library instant-load flow — see EmulatorClient.reset
-   * for why. No effect on the 48K machine (it has no ROM paging). */
   | { type: "reset"; pageRom1?: boolean }
-  | { type: "saveSnapshot" };
+  | { type: "saveSnapshot"; format?: "sna" | "z80" }
+  | { type: "saveState"; slot: number }
+  | {
+      type: "loadState";
+      slot: number;
+      data: ArrayBuffer;
+      model: MachineModel;
+      format?: "sna" | "z80" | undefined;
+    }
+  | {
+      type: "exportState";
+      data: ArrayBuffer;
+      model: MachineModel;
+      targetFormat: "sna" | "z80";
+      inputFormat?: "sna" | "z80" | undefined;
+    };
 
 export type WorkerToHostMessage =
   | { type: "ready" }
   | { type: "frame"; pixels: ArrayBuffer; width: number; height: number; audio: ArrayBuffer }
   | { type: "tapeStatus"; playing: boolean }
+  | { type: "diskStatus"; inserted: boolean; motorOn: boolean; track: number }
   | { type: "error"; message: string }
-  | { type: "snapshotData"; format: "sna"; data: ArrayBuffer };
+  | { type: "snapshotData"; format: "sna" | "z80"; data: ArrayBuffer }
+  | { type: "stateData"; slot: number; data: ArrayBuffer; model: MachineModel };
 
 export const MAX_FRAME_WIDTH = 512;
 export const MAX_FRAME_HEIGHT = 384;
 export const DEFAULT_SAMPLE_RATE = 44100;
+export const AUDIO_CHANNELS = 2; // Stereo
 export const AUDIO_CAPACITY_SAMPLES = 44100; // ~1s
+export const AUDIO_CAPACITY_FLOATS = AUDIO_CAPACITY_SAMPLES * AUDIO_CHANNELS;
 export const SPECTRUM_FPS = 50;
 export const FRAME_INTERVAL_MS = 1000 / SPECTRUM_FPS;
 export const SAMPLES_PER_FRAME = Math.round(DEFAULT_SAMPLE_RATE / SPECTRUM_FPS);
+export const STEREO_SAMPLES_PER_FRAME = SAMPLES_PER_FRAME * AUDIO_CHANNELS;
 
-/** Layout of the shared frame buffer: a small header (as Int32 words) — a seqlock
- * counter plus width/height — followed by one palette-indexed pixel buffer. A
- * seqlock (odd counter = mid-write; reader retries if the counter changed across
- * its read) avoids needing two full buffer copies for tear-free reads. */
 export const FRAME_HEADER_INT32_LENGTH = 3; // [seq, width, height]
 
 export function frameBufferByteLength(
@@ -51,10 +69,8 @@ export function frameBufferByteLength(
   return FRAME_HEADER_INT32_LENGTH * 4 + maxWidth * maxHeight;
 }
 
-/** Layout of the shared audio ring buffer: a small header (as Int32 words: read
- * index, write index, capacity in samples) followed by the sample ring itself. */
 export const AUDIO_HEADER_INT32_LENGTH = 3; // [readIndex, writeIndex, capacity]
 
-export function audioBufferByteLength(capacitySamples = AUDIO_CAPACITY_SAMPLES): number {
-  return AUDIO_HEADER_INT32_LENGTH * 4 + capacitySamples * 4;
+export function audioBufferByteLength(capacityFloats = AUDIO_CAPACITY_FLOATS): number {
+  return AUDIO_HEADER_INT32_LENGTH * 4 + capacityFloats * 4;
 }

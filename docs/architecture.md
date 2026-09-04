@@ -4,23 +4,25 @@
 
 npm workspaces monorepo, TypeScript project references enforcing module boundaries:
 
-- `packages/core` — pure TS emulator engine (Z80 CPU, memory, ULA, loaders,
-  machine composition). No DOM, no Worker APIs — its `tsconfig.json` sets
-  `"lib": ["ES2022"]` with no `"DOM"`, so any accidental `window`/`document`/
-  `postMessage` dependency fails to compile. This is what keeps the core testable
-  in plain Node/Vitest and reusable outside the Worker.
-- `packages/worker` — Web Worker glue: owns live `Machine48k` and `Machine128k` instances
-  (inheriting from `BaseMachine`), the `postMessage` protocol (`protocol.ts`), and the
-  `SharedArrayBuffer` ring-buffer implementations (`ring-buffers.ts`) for tear-free
-  frame/audio transport.
+- `packages/core` — pure TS emulator engine (Z80 CPU, memory devices `Memory48k`,
+  `Memory128k`, `MemoryPlus3`, ULA, loaders, disk controller `Fdc765` and `.dsk` parser/writer,
+  machine composition hierarchy `BaseMachine`, `Machine48k`, `Machine128k`, `MachinePlus3`).
+  No DOM, no Worker APIs — its `tsconfig.json` sets `"lib": ["ES2022"]` with no `"DOM"`,
+  so any accidental `window`/`document`/`postMessage` dependency fails to compile.
+  This is what keeps the core testable in plain Node/Vitest and reusable outside the Worker.
+- `packages/worker` — Web Worker glue: owns live `Machine48k`, `Machine128k`, and `MachinePlus3`
+  instances (inheriting from `BaseMachine`), handles on-the-fly snapshot export conversion (`exportState`),
+  the `postMessage` protocol (`protocol.ts`), and the `SharedArrayBuffer` ring-buffer implementations
+  (`ring-buffers.ts`) for tear-free frame and stereo audio transport.
 - `packages/app` — Vite + vanilla TS UI shell: canvas display, keyboard input
-  mapping, ROM/snapshot file loading, Web Audio playback.
+  mapping, ROM/snapshot/tape/disk file loading, Web Audio stereo playback, IndexedDB-backed
+  tape library and 5-slot save state manager.
 - `packages/test-fixtures` — test-only binary assets (zexdoc.com/zexall.com CPU
   exerciser binaries).
-- `packages/mcp-server` — headless MCP server exposing a `Machine48k`/`Machine128k`
-  (driven polymorphically through `BaseMachine`) as MCP tools (load ROM/snapshot/tape,
-  press keys, run frames, read the screen as a PNG) so an MCP client can drive and inspect
-  the emulator without a browser.
+- `packages/mcp-server` — headless MCP server exposing `Machine48k`/`Machine128k`/`MachinePlus3`
+  (driven polymorphically through `BaseMachine`) as MCP tools (load ROM/snapshot/tape, insert/eject disk,
+  save snapshot as `.sna`/`.z80`, press keys, run frames, read the screen as a PNG) so an MCP
+  client can drive and inspect the emulator without a browser.
 
 ## Z80 CPU core (`packages/core/src/cpu/`)
 
@@ -73,14 +75,23 @@ Audio filtering relies on `DcBlocker` (`packages/core/src/audio/dcBlocker.ts`), 
 IIR high-pass filter (`y[n] = x[n] - x[n-1] + 0.995 * y[n-1]`) shared between the ULA `Beeper`
 and `TapeEdgePlayer`. This removes the DC bias inherent in square-wave pulse audio before mixing.
 
+`AyChip` (AY-3-8912) models three independent sound channels (`A`, `B`, `C`), a noise generator
+(17-bit LFSR), and a hardware envelope generator. It supports stereo panning modes:
+- **ACB** (authentic +3 default): Channel A panned left, Channel C panned center, Channel B panned right.
+- **ABC** (Melodik interface layout): Channel A panned left, Channel B panned center, Channel C panned right.
+- **Mono**: Channels A, B, and C mixed equally across left and right.
+
+The ULA beeper and tape monitor tones are mixed into both left and right channels equally.
+
 ## Web Worker transport
 
 Primary path: `SharedArrayBuffer` — a seqlock-protected frame buffer (tear-free
 reads without needing two full buffer copies) and a lock-free single-producer/
-single-consumer audio ring, both in `packages/worker/src/ring-buffers.ts`. An
-`AudioWorkletProcessor` (`packages/app/src/audio/beeper-processor.ts`) reads the
-audio ring directly on its own realtime thread — audio never depends on main-thread
-rAF timing or worker frame jitter.
+single-consumer stereo audio ring (`AudioRing`), both in `packages/worker/src/ring-buffers.ts`.
+Audio samples are stored as interleaved `[left, right]` float pairs (capacity: 8192 sample pairs = 16384 floats).
+An `AudioWorkletProcessor` (`packages/app/src/audio/beeper-processor.ts`) reads the
+audio ring directly on its own realtime thread, filling stereo audio output channels — audio never
+depends on main-thread rAF timing or worker frame jitter.
 
 Fallback path (no `SharedArrayBuffer`, i.e. cross-origin isolation isn't set up —
 see Deployment below): per-frame `postMessage` with `Transferable` `ArrayBuffer`s,
@@ -159,8 +170,9 @@ the next until the previous one landed:
   under sustained back-to-back scripted loads, verified via a full pass through the
   saved tape library.
 
-## Snapshot save/load (`packages/core/src/loaders/sna.ts`, `apply.ts`)
+## Snapshot save/load (`packages/core/src/loaders/sna.ts`, `z80.ts`, `apply.ts`)
 
+### `.sna` Serialization & Deserialization
 `parseSna` reads a `.sna` file (48K: 27-byte header + 49152 bytes RAM; 128K: the
 same header/RAM shape for banks 5/2/current, plus an explicit PC field, port
 `0x7FFD`, and the remaining banks) into a `ParsedSnaSnapshot`; `applySnapshotTo48k`/
@@ -175,46 +187,68 @@ into `.sna` bytes:
   matching what `parseSna` expects to pop back off.
 - **128K has an explicit PC field**, so no push-the-stack trick is needed there —
   SP round-trips as-is.
-- Small read-only accessors were added alongside the existing write ones purely to
-  support this: `Memory48k.readRam()`, `Memory128k.peekBank()`/`.port7ffd`,
-  `UlaEngine.borderColor` (getter next to the pre-existing `setBorder`).
+- Small read-only accessors exist on memory and ULA devices: `Memory48k.readRam()`,
+  `Memory128k.peekBank()`/`.port7ffd`, `MemoryPlus3.peekBank()`/`.port7ffd`/`.port1ffd`,
+  `UlaEngine.borderColor`.
 
-Wired up as: a worker protocol `saveSnapshot` message / `EmulatorClient.saveSnapshot()`
-(promise-based — the one request/response pattern in an otherwise fire-and-forget
-protocol, resolved by matching `snapshotData` replies to queued requests in send
-order) / a **Save Snapshot** button (in the right-docked controls panel) that downloads
-`spectrum-<model>-<timestamp>.sna`;
-an MCP `save_snapshot` tool and matching bridge command, mirroring `read_screen`'s
-connected-instance-or-headless pattern; and `writeSna48k`/`writeSna128k` are also
-just directly callable from Node scripts against a headless `Machine48k`/`Machine128k`
-(no browser needed) — this is how `Tapes/SNA/*` in this repo's local (gitignored)
-tape library got seeded from tapes without a distributed `.sna`.
+### `.z80` (v3) Serialization
+`writeZ8048k`, `writeZ80128k`, and `writeZ80Plus3` (`packages/core/src/loaders/z80.ts`)
+serialize live machine state to standard Z80 version 3 snapshots:
+- **Header**: 30-byte base header (with PC=0 to signify v2/v3) + 55-byte extended header
+  (86 bytes total) encoding PC, hardware mode (48K: mode 0; 128K: mode 4; +3: mode 7),
+  paging ports `0x7FFD` and `0x1FFD`, AY register state, and flags.
+- **Memory Blocks**: Memory is compressed using ED ED RLE compression (`compressZ80Rle` in `rle.ts`).
+  Each block is prefixed by a 3-byte header `[len_lo, len_hi, page_id]` (or uncompressed if compressed
+  size exceeds raw 16KB). 48K uses standard pages 8, 4, 5; 128K and +3 serialize all 8 RAM banks
+  mapped to page IDs 3..10.
+
+### 5-Slot Save State Manager (`packages/app/src/ui/saveStates.ts`)
+The left panel's Snapshots tab provides an integrated 5-slot memory manager backed by IndexedDB (`zx-spectrum-save-states`):
+- **Live Preview & Metadata**: Each slot captures a 160×120 JPEG thumbnail of the canvas and timestamp or loaded file name.
+- **Quick Save (F5) / Quick Load (F8)**: Instant keyboard shortcuts to save to or restore from the active slot.
+- **Load into Slot**: Loads external `.z80` or `.sna` files directly into a specific memory slot.
+- **Export Slot**: Exports the active slot directly to disk as `.z80` or `.sna`.
+- **On-The-Fly Format Translation (`exportState`)**: The Web Worker transparently converts between `.sna` and `.z80` if the user exports in a format different from what is stored in the slot.
 
 ## Machine composition (`packages/core/src/machines/`)
 
-Both `Machine48k` and `Machine128k` extend `BaseMachine<M extends MemoryDevice>`,
+`Machine48k`, `Machine128k`, and `MachinePlus3` extend `BaseMachine<M extends MemoryDevice>`,
 which implements `Z80Bus` and orchestrates CPU execution, contention, ULA rendering,
-keyboard input, tape playback, and unified audio extraction (`getAudioSamples`).
+keyboard input, tape playback, and audio extraction (`getAudioSamples`).
 
-In `Machine128k`:
+### `Machine128k`
 - `Memory128k` contends by physical bank (odd banks 1/3/5/7), not by address slot —
   the ULA's video-fetch contention follows whichever RAM chip is actually being
   accessed, so a contended bank stays contended no matter which 16K slot it's
   currently paged into.
-- `AyChip` is a free-running oscillator, not frame-scoped like `Beeper` — its tone/
-  noise/envelope counters advance via a fractional clock accumulator
-  (`AY_CLOCK_HZ` / host sample rate) so pitch stays correct across frame boundaries
-  without drift. Generator counter rollover limits are precomputed to avoid division
-  in the inner tick loop. `Machine128k.getAudioSamples` mixes AY and beeper audio.
+- `AyChip` is a free-running oscillator, advancing via fractional clock accumulator
+  (`AY_CLOCK_HZ` / host sample rate) without pitch drift.
+- Supports stereo panning modes (`ACB`, `ABC`, `Mono`) mixed with beeper and tape audio.
 
-## MCP server (`packages/mcp-server`)
+### `MachinePlus3`
+- `MemoryPlus3` implements both port `0x7FFD` and port `0x1FFD`:
+  - **Standard Paging**: ROM 0..3 at `0x0000..0x3FFF`, Bank 5 at `0x4000..0x7FFF`, Bank 2 at `0x8000..0xBFFF`, switchable Bank 0..7 at `0xC000..0xFFFF`.
+  - **Special All-RAM Modes**: Bit 0 of `0x1FFD` activates 4 all-RAM configurations (0/1/2/3, 4/5/6/7, 4/5/6/3, 4/7/6/3) for CP/M and +3DOS.
+  - **Amstrad +3 Contention**: RAM banks 4, 5, 6, and 7 are contended regardless of where they are paged.
+- `ULA_PLUS3_PROFILE`: 228 T-states/line × 311 lines (70,908 T-states/frame), 32 T-state interrupt.
+- **Floppy Disk Subsystem**:
+  - `Fdc765` (`packages/core/src/disk/fdc765.ts`): NEC uPD765A FDC connected to port `0x2FFD` (Status/Data) and `0x3FFD` (Motor Control). Implements Specify, Sense Drive Status, Recalibrate, Sense Interrupt Status, Seek, Read Data, Write Data, and Read ID.
+  - `.dsk` Parser & Writer (`packages/core/src/disk/dsk.ts`): Parses Standard CPC ("MV - CPC") and Extended CPC disk images, sector track headers, and data blocks.
+  - Disk operations wire through the worker protocol (`insertDisk`, `ejectDisk`, `diskStatus`).
 
-A thin headless wrapper: one live `Machine48k`/`Machine128k` instance, no worker or
+### MCP server (`packages/mcp-server`)
+
+A thin headless wrapper: one live `Machine48k`/`Machine128k`/`MachinePlus3` instance, no worker or
 `SharedArrayBuffer` transport (a tool call and its reply are already a natural
 request/reply boundary, so the seqlock/ring-buffer machinery the browser needs for
 tear-free 60fps rendering doesn't apply here). `load_rom` replaces the machine
-outright rather than keeping both models alive simultaneously the way the app's
-worker does for live in-browser switching.
+outright rather than keeping models alive simultaneously the way the app's
+worker does for live in-browser switching. It supports loading 48K, 128K, or +3 ROMs
+(either 4 separate 16KB ROMs or a single 64KB image).
+
+Snapshots can be loaded via `load_snapshot` (`.sna` or `.z80`) or saved via `save_snapshot`
+in either `.sna` or `.z80` format. Disk images (`.dsk`) can be inserted or ejected on +3
+via `insert_disk` and `eject_disk`.
 
 Imports core via a relative path to its compiled `dist/` output
 (`../../core/dist/index.js`), not the `@zx-spectrum/core` package name — that name
@@ -236,7 +270,7 @@ codes to these same coordinates, a genuinely device-specific concern) it belongs
 core and both packages import the one copy.
 
 The bridge protocol wire format (`BridgeCommand`), port number (`MCP_BRIDGE_PORT`),
-and recognized file extension maps (`SNAPSHOT_EXTENSIONS`, `TAPE_EXTENSIONS`) are
+and recognized file extension maps (`SNAPSHOT_EXTENSIONS`, `TAPE_EXTENSIONS`, `DISK_EXTENSIONS`) are
 defined in `packages/core/src/io/bridgeProtocol.ts` and shared across both the MCP
 server and the browser UI as a single source of truth.
 
@@ -251,31 +285,34 @@ than reimplementing the lock-free read logic.
 The app never bundles Sinclair/Amstrad ROM images. Users supply their own ROM file(s)
 via the file picker on first run; ROM bytes are cached in `localStorage`
 (`packages/app/src/ui/romStorage.ts`) per machine model so the prompt only happens
-once per browser. Active snapshot/tape sessions (`sessionStore.ts`) and the saved
-tape library (`tapeLibrary.ts`) are stored in IndexedDB to restore emulator state
-and let users re-load a tape without re-picking the file. Both share one small
-promise-wrapping helper (`packages/app/src/utils/idb.ts`) for opening a database
-and awaiting a request/transaction, rather than each hand-rolling the same
-`IDBOpenDBRequest`/`IDBTransaction` callback boilerplate.
+once per browser. Active snapshot, tape, and disk sessions (`sessionStore.ts`), the saved
+tape library (`tapeLibrary.ts`), and save states (`saveStates.ts`) are stored in IndexedDB to restore
+emulator state across reloads. Both share one small promise-wrapping helper
+(`packages/app/src/utils/idb.ts`) for opening a database and awaiting a request/transaction.
 
 ## UI layout (`packages/app/index.html`, `style.css`)
 
 The canvas sits alone in the centered column; everything else lives in two
 `position:fixed` side panels, mutually exclusive (opening one auto-closes the
-other), closed by default, toggled by always-visible edge tabs (`#tape-library-toggle`
-left, `#controls-panel-toggle` right — icon + vertical text label) that shift with
-their panel via `body.library-open`/`body.controls-open` classes:
+other), closed by default, toggled by always-visible edge tabs (`#tape-library-toggle` and
+`#snapshots-panel-toggle` on the left, `#controls-panel-toggle` on the right — icon + vertical text label)
+that shift with their panel via `body.library-open`/`body.controls-open` classes:
 
-- **Left — tape library** (`#tape-library-panel`): add/search/filter-by-format,
-  per-item rename/delete, bulk select/export/delete, and — since the library is
-  where tape playback actually happens — the tape transport (`tape-btn`/
-  `tape-eject-btn`), the `tape-sound-toggle`/`fast-tape-toggle` checkboxes, and the
-  general Insert Tape/Snapshot file picker (`snapshot-input`, handles `.tap`/`.tzx`/
-  `.sna`/`.z80`) all live here too, not in the right panel.
-- **Right — controls** (`#controls-panel`): MACHINE (model select, pause/reset/save
-  snapshot), AUDIO (mute, volume), OPTIONS (`normal-keyboard-toggle`), and an
-  MCP BRIDGE group showing `#mcp-indicator`'s live connection state (moved out of
-  the top bar, which now holds only the brand/logo).
+- **Left panel** — contains two primary navigation tabs:
+  - **Tapes tab** (`#panel-tapes-tab`): Add/search/filter-by-format, per-item rename/delete,
+    bulk select/export/delete, tape transport (`tape-btn`/`tape-eject-btn`),
+    `tape-sound-toggle`/`fast-tape-toggle` options, and tape file picker.
+  - **Snapshots tab** (`#panel-snapshots-tab`): Consolidated 5-slot memory manager (`#save-state-slots`),
+    live thumbnail screenshot preview and timestamp display, Save (F5), Load (F8), Delete,
+    direct external file load into slot, and slot export (.z80 / .sna) with dynamic worker conversion.
+    Also displays active hardware memory configuration (model, RAM size, paging mode).
+- **Right panel — controls** (`#controls-panel`):
+  - **MACHINE**: Model selector (48K / 128K / +3), pause/reset.
+  - **FLOPPY DISK (+3)**: Active drive A: indicator, track stepper position, activity LED,
+    insert/eject `.dsk` floppy images.
+  - **AUDIO**: Mute, volume slider, stereo mode selector (ACB authentic +3 / ABC Melodik / Mono).
+  - **OPTIONS**: Normal keyboard toggle.
+  - **MCP BRIDGE**: Live server bridge connection indicator (`#mcp-indicator`).
 
 Buttons throughout both panels use icon + visible text (`.btn` is `inline-flex` with
 a gap for this), not icon-only-with-tooltip — the tape library's bulk-action bar is

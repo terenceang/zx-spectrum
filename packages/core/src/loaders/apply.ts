@@ -1,6 +1,7 @@
 import type { BaseMachine } from "../machines/baseMachine.js";
 import type { Machine128k } from "../machines/machine128k.js";
 import type { Machine48k } from "../machines/machine48k.js";
+import type { MachinePlus3 } from "../machines/machinePlus3.js";
 import { ROM_PAGE_SIZE } from "../memory/constants.js";
 import type { ParsedSnaSnapshot } from "./sna.js";
 import type { ParsedZ80Snapshot } from "./z80.js";
@@ -48,6 +49,39 @@ export function applySnapshotTo128k(
     machine.memory.pokeBank(5, snapshot.ram.subarray(0, ROM_PAGE_SIZE));
     machine.memory.pokeBank(2, snapshot.ram.subarray(ROM_PAGE_SIZE, ROM_PAGE_SIZE * 2));
     const thirdBank = ("pagedBanks" in snapshot && snapshot.pagedBanks) ? (port7ffd & 0x07) : 0;
+    machine.memory.pokeBank(thirdBank, snapshot.ram.subarray(ROM_PAGE_SIZE * 2, ROM_PAGE_SIZE * 3));
+
+    if ("pagedBanks" in snapshot && snapshot.pagedBanks) {
+      for (const { bank, data } of snapshot.pagedBanks) machine.memory.pokeBank(bank, data);
+    }
+  }
+
+  if ("ayRegisters" in snapshot && snapshot.ayRegisters) machine.ay.loadRegisters(snapshot.ayRegisters);
+}
+
+/** Pushes a parsed snapshot into a live MachinePlus3, restoring port 0x7FFD and
+ * 0x1FFD states and all RAM banks. */
+export function applySnapshotToPlus3(
+  machine: MachinePlus3,
+  snapshot: ParsedSnaSnapshot | ParsedZ80Snapshot,
+): void {
+  applySnapshotBase(machine, snapshot);
+
+  const port7ffd = snapshot.port7ffd ?? 0;
+  const port1ffd = "port1ffd" in snapshot && snapshot.port1ffd ? snapshot.port1ffd : 0;
+  machine.memory.writePort7ffd(port7ffd);
+  machine.memory.writePort1ffd(port1ffd);
+  machine.fdc.setMotor(machine.memory.diskMotorOn);
+
+  if ("banks" in snapshot && snapshot.banks) {
+    for (const { pageNumber, data } of snapshot.banks) {
+      const bankNumber = pageNumber - 3;
+      if (bankNumber >= 0 && bankNumber <= 7) machine.memory.pokeBank(bankNumber, data);
+    }
+  } else {
+    machine.memory.pokeBank(5, snapshot.ram.subarray(0, ROM_PAGE_SIZE));
+    machine.memory.pokeBank(2, snapshot.ram.subarray(ROM_PAGE_SIZE, ROM_PAGE_SIZE * 2));
+    const thirdBank = "pagedBanks" in snapshot && snapshot.pagedBanks ? port7ffd & 0x07 : 0;
     machine.memory.pokeBank(thirdBank, snapshot.ram.subarray(ROM_PAGE_SIZE * 2, ROM_PAGE_SIZE * 3));
 
     if ("pagedBanks" in snapshot && snapshot.pagedBanks) {

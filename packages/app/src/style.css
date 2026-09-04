@@ -8,6 +8,7 @@
   --bg: #1a1714;
   --bg-deep: #141210;
   --surface: #201c18;
+  --surface-1: #201c18;
   --surface-2: #28231e;
   --surface-3: #322c26;
 
@@ -16,6 +17,7 @@
   --border-hover: #4e443a;
 
   --text: #ece7e1;
+  --text-primary: #ece7e1;
   --text-secondary: #c8c2b9;
   --muted: #8a8278;
   --dim: #5c554c;
@@ -530,20 +532,104 @@ body.controls-open .app-container {
 }
 
 /* --------------------------------------------------------------------------
+   Panel Navigation Tabs (Inside Left Panel)
+   -------------------------------------------------------------------------- */
+.panel-nav-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  flex-shrink: 0;
+  height: 44px;
+}
+
+.nav-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nav-tab-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.nav-tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--accent-subtle);
+  font-weight: 600;
+}
+
+.panel-tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.memory-info-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.memory-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.info-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.info-val {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
    Panel edge tabs
    -------------------------------------------------------------------------- */
 .panel-tab {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 41;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 0.4rem;
   border-radius: 0;
-  transition: left 0.25s ease, right 0.25s ease;
+  transition: left 0.25s ease, right 0.25s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.panel-tab.active {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .panel-tab-label {
@@ -557,19 +643,34 @@ body.controls-open .app-container {
   white-space: nowrap;
 }
 
-.panel-tab-left {
+.panel-tabs-left {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
   left: 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: left 0.25s ease;
+}
+
+.panel-tab-left {
   border-left: none;
   border-top-right-radius: var(--radius-sm);
   border-bottom-right-radius: var(--radius-sm);
 }
 
-body.library-open .panel-tab-left {
+body.library-open .panel-tabs-left {
   left: 280px;
 }
 
 .panel-tab-right {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
   right: 0;
+  z-index: 41;
   border-right: none;
   border-top-left-radius: var(--radius-sm);
   border-bottom-left-radius: var(--radius-sm);
@@ -591,7 +692,7 @@ body.controls-open .panel-tab-right {
     padding-right: 1.25rem;
   }
 
-  body.library-open .panel-tab-left {
+  body.library-open .panel-tabs-left {
     left: 100%;
   }
 
@@ -864,10 +965,18 @@ body.controls-open .panel-tab-right {
   outline-offset: 2px;
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   color: var(--accent);
   border-color: var(--accent);
   background: var(--accent-subtle);
+}
+
+.btn:disabled,
+.control-file-btn.disabled,
+.control-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btn-accent {
@@ -877,10 +986,20 @@ body.controls-open .panel-tab-right {
   border-color: var(--accent);
 }
 
-.btn-accent:hover {
+.btn-accent:hover:not(:disabled) {
   background: var(--accent-hover);
   color: #1a1714;
   border-color: var(--accent-hover);
+}
+
+.btn-danger {
+  color: var(--spec-red);
+}
+
+.btn-danger:hover:not(:disabled) {
+  color: #ff5555;
+  border-color: var(--spec-red);
+  background: rgba(217, 56, 58, 0.12);
 }
 
 /* CRT Screen Frame */
@@ -1083,3 +1202,210 @@ canvas#screen {
   font-size: 0.72rem;
   color: var(--spec-red);
 }
+
+/* --------------------------------------------------------------------------
+   Floppy Drive Section
+   -------------------------------------------------------------------------- */
+.floppy-drive-section {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.floppy-drive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drive-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: all 0.15s ease;
+}
+
+.drive-led.active {
+  background: var(--spec-green);
+  box-shadow: 0 0 8px var(--spec-green);
+}
+
+.floppy-drive-status {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.floppy-drive-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.floppy-drive-controls .control-file-btn {
+  flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Memory Slots Section
+   -------------------------------------------------------------------------- */
+.save-state-slots {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.slot-btn {
+  flex: 1;
+  height: 28px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.slot-btn:hover {
+  color: var(--text);
+  border-color: var(--border-hover);
+  background: var(--surface-3);
+}
+
+.slot-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.slot-btn.has-state:not(.active) {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.save-state-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem;
+  width: 100%;
+  box-sizing: border-box;
+  align-items: center;
+}
+
+.state-thumbnail {
+  width: 100%;
+  height: 96px;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--dim);
+  overflow: hidden;
+}
+
+.state-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.state-timestamp {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.memory-slot-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.slot-btn-row {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.controls-panel-group .slot-btn-row .btn {
+  flex: 1;
+  width: auto;
+  height: 32px;
+  padding: 0 0.25rem;
+  font-size: 0.72rem;
+  gap: 0.3rem;
+  justify-content: center;
+}
+
+.controls-panel-group .control-file-btn.slot-file-btn {
+  width: 100%;
+  max-width: 100%;
+  height: 32px;
+  box-sizing: border-box;
+  justify-content: center;
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.controls-panel-group .control-file-btn.slot-file-btn:hover {
+  color: var(--text);
+  border-color: var(--border-hover);
+  background: var(--surface-3);
+}
+
+.slot-export-row {
+  display: flex;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.controls-panel-group .slot-export-row .btn {
+  flex: 1;
+  width: auto;
+  height: 32px;
+  gap: 0.35rem;
+  justify-content: center;
+  font-size: 0.72rem;
+}
+
+.slot-export-row .control-select {
+  width: auto;
+  min-width: 68px;
+  height: 32px;
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  box-sizing: border-box;
+}
+

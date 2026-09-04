@@ -56,6 +56,43 @@ class AudioRingReader {
     for (let i = count; i < out.length; i++) out[i] = 0;
     Atomics.store(this.header, 0, readIndex);
   }
+
+  readStereo(outLeft: Float32Array, outRight?: Float32Array): void {
+    let readIndex = Atomics.load(this.header, 0);
+    const writeIndex = Atomics.load(this.header, 1);
+    const available = (writeIndex - readIndex + this.capacity) % this.capacity;
+
+    if (!this.prebuffered) {
+      if (available >= this.minBufferSamples) {
+        this.prebuffered = true;
+      } else {
+        outLeft.fill(0);
+        if (outRight) outRight.fill(0);
+        return;
+      }
+    }
+
+    if (available < 2) {
+      this.prebuffered = false;
+      outLeft.fill(0);
+      if (outRight) outRight.fill(0);
+      return;
+    }
+
+    const pairs = Math.min(Math.floor(available / 2), outLeft.length);
+    for (let i = 0; i < pairs; i++) {
+      outLeft[i] = this.samples[readIndex]!;
+      readIndex = (readIndex + 1) % this.capacity;
+      const r = this.samples[readIndex]!;
+      readIndex = (readIndex + 1) % this.capacity;
+      if (outRight) outRight[i] = r;
+    }
+    for (let i = pairs; i < outLeft.length; i++) {
+      outLeft[i] = 0;
+      if (outRight) outRight[i] = 0;
+    }
+    Atomics.store(this.header, 0, readIndex);
+  }
 }
 
 class BeeperProcessor extends AudioWorkletProcessor {
@@ -69,15 +106,17 @@ class BeeperProcessor extends AudioWorkletProcessor {
   }
 
   override process(_inputs: Float32Array[][], outputs: Float32Array[][]): boolean {
-    const out = outputs[0]?.[0];
-    if (!out) return true;
+    const outLeft = outputs[0]?.[0];
+    const outRight = outputs[0]?.[1];
+    if (!outLeft) return true;
 
     if (!this.ring) {
-      out.fill(0);
+      outLeft.fill(0);
+      if (outRight) outRight.fill(0);
       return true;
     }
 
-    this.ring.read(out);
+    this.ring.readStereo(outLeft, outRight);
     return true;
   }
 }

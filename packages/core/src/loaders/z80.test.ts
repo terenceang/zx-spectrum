@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { RegIndex, WordIndex } from "../cpu/registers.js";
-import { parseZ80 } from "./z80.js";
+import { Machine128k } from "../machines/machine128k.js";
+import { Machine48k } from "../machines/machine48k.js";
+import { MachinePlus3 } from "../machines/machinePlus3.js";
+import { parseZ80, writeZ80128k, writeZ8048k, writeZ80Plus3 } from "./z80.js";
 
 function baseHeaderV1(pc: number, flagsByte: number): Uint8Array {
   const header = new Uint8Array(30);
@@ -101,5 +104,76 @@ describe("parseZ80", () => {
       expect(snapshot.ram[i]).toBe(0x55);
     }
     expect(snapshot.ram[100]).toBe(0);
+  });
+
+  it("round-trips Machine48k through writeZ8048k and parseZ80", () => {
+    const machine = new Machine48k();
+    machine.reset();
+    machine.cpu.regs.pc = 0x8123;
+    machine.cpu.regs.bytes[RegIndex.A] = 0x5a;
+    machine.memory.write8(0x4000, 0x12);
+    machine.memory.write8(0x8000, 0x34);
+    machine.memory.write8(0xc000, 0x56);
+
+    const bytes = writeZ8048k(machine, 4);
+    const parsed = parseZ80(bytes);
+
+    expect(parsed.version).toBe(3);
+    expect(parsed.hardwareMode).toBe("48k");
+    expect(parsed.border).toBe(4);
+    expect(parsed.cpu.registerWords[WordIndex.PC]).toBe(0x8123);
+    expect(parsed.cpu.registerBytes[RegIndex.A]).toBe(0x5a);
+    expect(parsed.ram[0]).toBe(0x12);
+    expect(parsed.ram[0x4000]).toBe(0x34);
+    expect(parsed.ram[0x8000]).toBe(0x56);
+  });
+
+  it("round-trips Machine128k through writeZ80128k and parseZ80", () => {
+    const machine = new Machine128k();
+    machine.reset();
+    machine.cpu.regs.pc = 0xc050;
+    machine.memory.writePagingRegister(0x13); // Rom 1, Bank 3 paged
+    machine.memory.pokeBank(3, new Uint8Array(16384).fill(0x33));
+    machine.memory.pokeBank(7, new Uint8Array(16384).fill(0x77));
+    machine.ay.selectRegister(6);
+    machine.ay.writeData(0x1a);
+
+    const bytes = writeZ80128k(machine, 2);
+    const parsed = parseZ80(bytes);
+
+    expect(parsed.version).toBe(3);
+    expect(parsed.hardwareMode).toBe("128k");
+    expect(parsed.border).toBe(2);
+    expect(parsed.cpu.registerWords[WordIndex.PC]).toBe(0xc050);
+    expect(parsed.port7ffd).toBe(0x13);
+    expect(parsed.banks?.length).toBe(8);
+
+    const bank3 = parsed.banks?.find((b) => b.pageNumber === 3 + 3);
+    expect(bank3?.data[0]).toBe(0x33);
+
+    expect(parsed.ayRegisters?.[6]).toBe(0x1a);
+  });
+
+  it("round-trips MachinePlus3 through writeZ80Plus3 and parseZ80", () => {
+    const machine = new MachinePlus3();
+    machine.reset();
+    machine.cpu.regs.pc = 0x9000;
+    machine.memory.writePort7ffd(0x04);
+    machine.memory.writePort1ffd(0x08); // Motor on
+    machine.memory.pokeBank(4, new Uint8Array(16384).fill(0x44));
+
+    const bytes = writeZ80Plus3(machine, 6);
+    const parsed = parseZ80(bytes);
+
+    expect(parsed.version).toBe(3);
+    expect(parsed.hardwareMode).toBe("plus3");
+    expect(parsed.border).toBe(6);
+    expect(parsed.cpu.registerWords[WordIndex.PC]).toBe(0x9000);
+    expect(parsed.port7ffd).toBe(0x04);
+    expect(parsed.port1ffd).toBe(0x08);
+    expect(parsed.banks?.length).toBe(8);
+
+    const bank4 = parsed.banks?.find((b) => b.pageNumber === 4 + 3);
+    expect(bank4?.data[0]).toBe(0x44);
   });
 });

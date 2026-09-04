@@ -1,4 +1,4 @@
-export type MachineModel = "48k" | "128k";
+export type MachineModel = "48k" | "128k" | "plus3";
 
 export interface FrameBuffer {
   pixels: Uint8Array;

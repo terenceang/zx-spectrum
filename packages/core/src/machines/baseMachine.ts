@@ -163,6 +163,7 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
   }
 
   abstract getAudioSamples(sampleCount: number, sampleRate?: number): Float32Array;
+  abstract getStereoAudioSamples(sampleCount: number, sampleRate?: number): Float32Array;
 
   protected mixAudio(
     beeper: Float32Array,
@@ -186,6 +187,33 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
       if (extraAudio) sum += extraAudio[i]! * extraScale;
       if (tapeAudio) sum += tapeAudio[i]! * 0.4;
       out[i] = Math.max(-1, Math.min(1, sum));
+    }
+    return out;
+  }
+
+  protected mixAudioStereo(
+    beeper: Float32Array,
+    sampleCount: number,
+    beeperScale = 1,
+    extraLeft: Float32Array | null = null,
+    extraRight: Float32Array | null = null,
+    extraScale = 1,
+  ): Float32Array {
+    const tapeAudio =
+      this.tapeSoundEnabled && this.tape.isPlaying()
+        ? this.tape.renderFrameAudio(this.frameStartTotalT, this.frameTStateBudget, sampleCount)
+        : null;
+
+    const out = new Float32Array(sampleCount * 2);
+    for (let i = 0; i < sampleCount; i++) {
+      const beep = beeper[i]! * beeperScale;
+      const tape = tapeAudio ? tapeAudio[i]! * 0.4 : 0;
+      let left = beep + tape;
+      let right = beep + tape;
+      if (extraLeft) left += extraLeft[i]! * extraScale;
+      if (extraRight) right += extraRight[i]! * extraScale;
+      out[i * 2] = Math.max(-1, Math.min(1, left));
+      out[i * 2 + 1] = Math.max(-1, Math.min(1, right));
     }
     return out;
   }

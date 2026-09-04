@@ -48,6 +48,28 @@ describe("AyChip", () => {
     for (const s of samples) expect(s).toBe(0);
   });
 
+  it("renders stereo audio with correct channel separation in ACB mode", () => {
+    const chip = new AyChip();
+    // Enable only Channel A (Tone period 100)
+    writeReg(chip, 0, 100);
+    writeReg(chip, 1, 0);
+    writeReg(chip, 7, 0b111110); // Channel A only
+    writeReg(chip, 8, 0x0f); // Channel A full vol
+    writeReg(chip, 9, 0x00); // Channel B off
+    writeReg(chip, 10, 0x00); // Channel C off
+
+    const { left, right } = chip.renderFrameStereo(500, 44100, "acb");
+    // In ACB, Channel A is 100% Left, 0% Right
+    let maxLeft = 0;
+    let maxRight = 0;
+    for (let i = 0; i < 500; i++) {
+      maxLeft = Math.max(maxLeft, Math.abs(left[i]!));
+      maxRight = Math.max(maxRight, Math.abs(right[i]!));
+    }
+    expect(maxLeft).toBeGreaterThan(0.4);
+    expect(maxRight).toBe(0);
+  });
+
   it("envelope with CONT=0 decays and holds at level 0", () => {
     const chip = new AyChip();
     writeReg(chip, 0, 1);

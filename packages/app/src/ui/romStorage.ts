@@ -3,10 +3,13 @@ import { arrayBufferToBase64, base64ToArrayBuffer } from "../utils/base64.js";
 
 const ROM_KEY_48K = "zx_spectrum_rom_48k";
 const ROM_KEY_128K = "zx_spectrum_rom_128k";
+const ROM_KEY_PLUS3 = "zx_spectrum_rom_plus3";
 const LAST_MODEL_KEY = "zx_spectrum_last_model";
 
 function romKey(model: MachineModel): string {
-  return model === "48k" ? ROM_KEY_48K : ROM_KEY_128K;
+  if (model === "48k") return ROM_KEY_48K;
+  if (model === "128k") return ROM_KEY_128K;
+  return ROM_KEY_PLUS3;
 }
 
 export interface StoredRom {
@@ -42,7 +45,7 @@ export function loadRom(model: MachineModel): StoredRom | null {
 
 export function loadLastModel(): MachineModel | null {
   const val = localStorage.getItem(LAST_MODEL_KEY);
-  if (val === "48k" || val === "128k") return val;
+  if (val === "48k" || val === "128k" || val === "plus3") return val;
   return null;
 }
 

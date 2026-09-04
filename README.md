@@ -12,18 +12,15 @@ npm install
 npm run dev       # Vite dev server at http://localhost:5173
 ```
 
-Open the page, select 48K or 128K mode, load the corresponding ROM file(s) (see below),
-then drop in a `.sna`, `.z80` snapshot or `.tap`, `.tzx` tape file to play. The canvas
-sits alone in the middle; everything else lives in two collapsible side panels opened
-via the edge tabs. The **left panel** is the tape library (IndexedDB-backed) — it also
-holds tape transport (play/stop, eject), the loading-tone and fast-load toggles, and
-the Insert Tape/Snapshot file picker. Clicking a saved tape there drives a full
-`LOAD ""` end to end and plays it in well under a second, fast-load forced on
-regardless of the toggle's setting; search, format filtering, rename, and bulk
-export/delete are all available too. The **right panel** holds machine controls
-(model, pause/reset, Save Snapshot — captures the machine's current state as a `.sna`
-file and downloads it), audio (mute/volume), keyboard options, and the MCP bridge
-connection status.
+Open the page, select 48K, 128K, or +3 mode, load the corresponding ROM file(s) (see below),
+then drop in a `.sna`, `.z80` snapshot, `.tap`, `.tzx` tape file, or `.dsk` disk image to play.
+The canvas sits alone in the middle; everything else lives in two collapsible side panels opened
+via the edge tabs:
+
+- **Left panel** — contains two tabs:
+  - **Tapes**: Tape library (IndexedDB-backed) with search, format filters, rename, and bulk export/delete, plus tape transport (play/stop, eject), loading-tone and fast-load toggles, and tape file picker. Clicking a saved tape drives a full `LOAD ""` end to end and loads in under a second via ROM fast-load traps.
+  - **Snapshots**: 5-slot memory manager with instant thumbnail screenshot preview, timestamp display, quick save (F5), quick load (F8), slot delete, direct `.z80`/`.sna` loading into any slot, and slot export to `.z80` or `.sna` with on-the-fly format translation.
+- **Right panel** — holds machine controls (model selector: 48K / 128K / +3, pause/reset), floppy disk drive A: controls (track indicator, activity LED, insert/eject `.dsk` images when in +3 mode), audio options (mute, volume, and stereo mode: ACB authentic +3, ABC Melodik, or Mono), keyboard options, and MCP bridge status.
 
 ### ROMs
 
@@ -31,9 +28,10 @@ This app does **not** bundle Sinclair/Amstrad ROM images — that's copyrighted
 material. Supply your own ROM dump via the modal or settings on first run:
 - **48K**: a single 16384-byte ROM dump
 - **128K**: two 16384-byte ROM dumps (`128-0.rom` and `128-1.rom`)
+- **+3**: four 16384-byte ROM dumps (`plus3-0.rom` through `plus3-3.rom`) or a single 65536-byte bundle
 
 ROMs are cached in your browser's `localStorage` per machine model so you only need
-to supply them once. Active tape and snapshot sessions persist in IndexedDB across reloads.
+to supply them once. Active tape, disk, and snapshot sessions persist across reloads.
 
 ## Testing
 
@@ -59,12 +57,16 @@ send; without them the app still works, just slower.
 
 ## MCP server
 
-`packages/mcp-server` exposes the emulator as MCP tools (load ROM/snapshot/tape with
-optional fast-load, save the current state as a `.sna` snapshot, toggle fast tape load,
-press keys, run frames, read the screen as a PNG) so an MCP client can drive it
-headlessly. Build it (`npm run build --workspace=@zx-spectrum/mcp-server`,
-or just `npm run build`), then point an MCP client at `node packages/mcp-server/dist/index.js` —
-already registered in `.mcp.json` for Claude Code in this repo.
+`packages/mcp-server` exposes the emulator as MCP tools:
+- `load_rom`: load 48K, 128K, or +3 ROM images (single or multi-file)
+- `load_snapshot`: load `.sna` or `.z80` (v1/v2/v3) snapshots
+- `save_snapshot`: save running emulator state as `.sna` or `.z80` snapshot
+- `load_tape` / `play_tape` / `stop_tape`: cassette playback with optional ROM fast-load
+- `insert_disk` / `eject_disk`: insert/eject `.dsk` (Standard and Extended CPC) disk images
+- `press_key` / `get_status` / `run_frames`: headless input and execution
+- `read_screen`: screenshot capture as PNG with hand-rolled CRC32
+
+Point an MCP client at `node packages/mcp-server/dist/index.js` — already registered in `.mcp.json` for Claude Code in this repo.
 
 ## Legal
 

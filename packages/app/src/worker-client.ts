@@ -1,5 +1,5 @@
 import {
-  AUDIO_CAPACITY_SAMPLES,
+  AUDIO_CAPACITY_FLOATS,
   AUDIO_HEADER_INT32_LENGTH,
   MAX_FRAME_HEIGHT,
   MAX_FRAME_WIDTH,
@@ -15,22 +15,24 @@ export type Frame = { pixels: Uint8Array; width: number; height: number };
 
 /** Main-thread wrapper around the emulation Web Worker. Prefers a SharedArrayBuffer
  * frame/audio transport (tear-free reads via a seqlock, lock-free audio ring); when
- * SharedArrayBuffer is unavailable (cross-origin isolation not set up by the host —
- * see the deployment notes in docs/architecture.md) it transparently falls back to
- * per-frame postMessage + Transferable, at the cost of a small GC/copy overhead. */
+ * SharedArrayBuffer is unavailable (cross-origin isolation not set up by the host)
+ * it transparently falls back to per-frame postMessage + Transferable. */
 export class EmulatorClient {
   private readonly worker: Worker;
   private readonly frameReader: FrameRingReader | null = null;
   readonly usesSharedMemory: boolean;
   readonly audioBuffer: SharedArrayBuffer | null = null;
-  readonly audioCapacitySamples = AUDIO_CAPACITY_SAMPLES;
+  readonly audioCapacitySamples = AUDIO_CAPACITY_FLOATS;
 
   private latestFallbackFrame: Frame | null = null;
   private latestFallbackAudio: Float32Array | null = null;
   private readonly pendingSnapshotRequests: ((data: ArrayBuffer) => void)[] = [];
+  private readonly pendingStateRequests: ((data: { slot: number; data: ArrayBuffer; model: MachineModel }) => void)[] = [];
+
   onReady?: () => void;
   onError?: (message: string) => void;
   onTapeStatus?: (playing: boolean) => void;
+  onDiskStatus?: (status: { inserted: boolean; motorOn: boolean; track: number }) => void;
 
   constructor() {
     this.worker = new Worker(new URL("../../worker/src/emulator.worker.ts", import.meta.url), {
@@ -47,7 +49,7 @@ export class EmulatorClient {
 
     if (this.usesSharedMemory) {
       frameBuffer = new SharedArrayBuffer(frameBufferByteLength(MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT));
-      audioBuffer = new SharedArrayBuffer(audioBufferByteLength(AUDIO_CAPACITY_SAMPLES));
+      audioBuffer = new SharedArrayBuffer(audioBufferByteLength(AUDIO_CAPACITY_FLOATS));
       this.frameReader = new FrameRingReader(frameBuffer, MAX_FRAME_WIDTH, MAX_FRAME_HEIGHT);
       this.audioBuffer = audioBuffer;
     }
@@ -57,7 +59,9 @@ export class EmulatorClient {
       if (message.type === "ready") this.onReady?.();
       else if (message.type === "error") this.onError?.(message.message);
       else if (message.type === "tapeStatus") this.onTapeStatus?.(message.playing);
-      else if (message.type === "frame") {
+      else if (message.type === "diskStatus") {
+        this.onDiskStatus?.({ inserted: message.inserted, motorOn: message.motorOn, track: message.track });
+      } else if (message.type === "frame") {
         this.latestFallbackFrame = {
           pixels: new Uint8Array(message.pixels),
           width: message.width,
@@ -66,6 +70,8 @@ export class EmulatorClient {
         this.latestFallbackAudio = new Float32Array(message.audio);
       } else if (message.type === "snapshotData") {
         this.pendingSnapshotRequests.shift()?.(message.data);
+      } else if (message.type === "stateData") {
+        this.pendingStateRequests.shift()?.({ slot: message.slot, data: message.data, model: message.model });
       }
     };
 
@@ -97,12 +103,24 @@ export class EmulatorClient {
     this.send({ type: "stopTape" });
   }
 
+  loadDisk(data: ArrayBuffer): void {
+    this.send({ type: "loadDisk", data }, [data]);
+  }
+
+  ejectDisk(): void {
+    this.send({ type: "ejectDisk" });
+  }
+
   setTapeSound(enabled: boolean): void {
     this.send({ type: "setTapeSound", enabled });
   }
 
   setFastTapeLoad(enabled: boolean): void {
     this.send({ type: "setFastTapeLoad", enabled });
+  }
+
+  setAudioMode(mode: "mono" | "acb" | "abc"): void {
+    this.send({ type: "setAudioMode", mode });
   }
 
   sendKey(row: number, bit: number, down: boolean): void {
@@ -117,43 +135,56 @@ export class EmulatorClient {
     this.send({ type: "resume" });
   }
 
-  /** `pageRom1`: for the 128K machine, force ROM 1 (48 BASIC) paged in from the
-   * first instruction after reset, bypassing the normal ROM 0 boot (the 128 menu).
-   * Used by the tape-library instant-load flow: navigating the 128 menu's "Tape
-   * Loader" option first (real hardware's only path to a tape load) leaves the
-   * machine in a state where some multi-stage custom loaders hang partway through
-   * (confirmed: the fast-load trap correctly loads the first blocks, then the
-   * loaded code never continues) — cold-booting straight into ROM 1, identical to
-   * how Machine48k boots, doesn't have this problem and lets 48K and 128K instant-load
-   * share the exact same post-reset flow (see confirmInstantLoad in main.ts). */
   reset(pageRom1 = false): void {
     this.send({ type: "reset", pageRom1 });
   }
 
-  /** Captures the current machine state as a .sna file (48K or 128K format,
-   * matching whichever model is currently active). Requests are answered in the
-   * order sent (one `pendingSnapshotRequests` entry per in-flight request). */
-  saveSnapshot(): Promise<ArrayBuffer> {
+  saveSnapshot(format: "sna" | "z80" = "sna"): Promise<ArrayBuffer> {
     return new Promise((resolve) => {
       this.pendingSnapshotRequests.push(resolve);
-      this.send({ type: "saveSnapshot" });
+      this.send({ type: "saveSnapshot", format });
     });
   }
 
-  /** Call once per rAF tick on the main thread. Returns the latest complete frame,
-   * or null if none is available yet. */
-  pollFrame(): Frame | null {
-    if (this.frameReader) return this.frameReader.read();
-    return this.latestFallbackFrame;
+  saveState(slot: number): Promise<{ slot: number; data: ArrayBuffer; model: MachineModel }> {
+    return new Promise((resolve) => {
+      this.pendingStateRequests.push(resolve);
+      this.send({ type: "saveState", slot });
+    });
   }
 
-  /** Fallback-path only: audio samples for the most recent frame, consumed and
-   * cleared by the caller (the SharedArrayBuffer path instead wires the
-   * AudioWorklet directly to `audioBuffer`, see audio/audioSink.ts). */
+  loadState(
+    slot: number,
+    data: ArrayBuffer,
+    model: MachineModel,
+    format?: "sna" | "z80",
+  ): void {
+    this.send({ type: "loadState", slot, data, model, format }, [data]);
+  }
+
+  exportState(
+    data: ArrayBuffer,
+    model: MachineModel,
+    targetFormat: "sna" | "z80",
+    inputFormat?: "sna" | "z80",
+  ): Promise<ArrayBuffer> {
+    return new Promise((resolve) => {
+      this.pendingSnapshotRequests.push(resolve);
+      this.send({ type: "exportState", data, model, targetFormat, inputFormat }, [data]);
+    });
+  }
+
+  pollFrame(): Frame | null {
+    if (this.frameReader) return this.frameReader.read();
+    const f = this.latestFallbackFrame;
+    this.latestFallbackFrame = null;
+    return f;
+  }
+
   takeFallbackAudio(): Float32Array | null {
-    const audio = this.latestFallbackAudio;
+    const a = this.latestFallbackAudio;
     this.latestFallbackAudio = null;
-    return audio;
+    return a;
   }
 }
 

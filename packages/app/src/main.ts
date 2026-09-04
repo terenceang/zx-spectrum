@@ -1,4 +1,5 @@
 import {
+  DISK_EXTENSIONS,
   MCP_BRIDGE_PORT,
   ROM_PAGE_SIZE,
   SNAPSHOT_EXTENSIONS,
@@ -27,6 +28,12 @@ import {
   type TapeEntry,
   type TapeFormat,
 } from "./ui/tapeLibrary.js";
+import {
+  saveStateToStorage,
+  loadStateFromStorage,
+  deleteStateFromStorage,
+  getAllSaveStates,
+} from "./ui/saveStates.js";
 
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
@@ -38,13 +45,40 @@ const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElem
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
 const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement;
 const saveSnapshotBtn = document.getElementById("save-snapshot-btn") as HTMLButtonElement;
+const snapshotFormatSelect = document.getElementById("snapshot-format-select") as HTMLSelectElement | null;
 const tapeBtn = document.getElementById("tape-btn") as HTMLButtonElement;
 const tapeEjectBtn = document.getElementById("tape-eject-btn") as HTMLButtonElement | null;
 const muteBtn = document.getElementById("mute-btn") as HTMLButtonElement | null;
 const volumeIcon = document.getElementById("volume-icon") as SVGElement | null;
 const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement | null;
 const volumeValue = document.getElementById("volume-value") as HTMLSpanElement | null;
+const audioModeSelect = document.getElementById("audio-mode-select") as HTMLSelectElement | null;
 const status = document.getElementById("status") as HTMLDivElement;
+
+// Floppy drive elements
+const floppyDriveSection = document.getElementById("floppy-drive-section") as HTMLDivElement | null;
+const floppyLed = document.getElementById("floppy-led") as HTMLSpanElement | null;
+const floppyStatusText = document.getElementById("floppy-status-text") as HTMLSpanElement | null;
+const diskFileInput = document.getElementById("disk-file-input") as HTMLInputElement | null;
+const diskFileText = document.getElementById("disk-file-text") as HTMLSpanElement | null;
+const diskEjectBtn = document.getElementById("disk-eject-btn") as HTMLButtonElement | null;
+
+// Save states elements
+const saveStateSlots = document.getElementById("save-state-slots") as HTMLDivElement | null;
+const stateThumbnail = document.getElementById("state-thumbnail") as HTMLDivElement | null;
+const stateTimestamp = document.getElementById("state-timestamp") as HTMLSpanElement | null;
+const quickSaveBtn = document.getElementById("quick-save-btn") as HTMLButtonElement | null;
+const quickLoadBtn = document.getElementById("quick-load-btn") as HTMLButtonElement | null;
+const deleteStateBtn = document.getElementById("delete-state-btn") as HTMLButtonElement | null;
+
+// Left panel tabs & Snapshots elements
+const panelTapesTab = document.getElementById("panel-tapes-tab") as HTMLDivElement | null;
+const panelSnapshotsTab = document.getElementById("panel-snapshots-tab") as HTMLDivElement | null;
+const leftTabTapesBtn = document.getElementById("left-tab-tapes-btn") as HTMLButtonElement | null;
+const leftTabSnapshotsBtn = document.getElementById("left-tab-snapshots-btn") as HTMLButtonElement | null;
+const snapshotsPanelToggle = document.getElementById("snapshots-panel-toggle") as HTMLButtonElement | null;
+const snapshotFileInput = document.getElementById("snapshot-file-input") as HTMLInputElement | null;
+const snapshotFileText = document.getElementById("snapshot-file-text") as HTMLSpanElement | null;
 
 // Tape library elements
 const tapeLibraryPanel = document.getElementById("tape-library-panel") as HTMLDivElement;
@@ -168,15 +202,60 @@ fastTapeToggle?.addEventListener("change", () => {
   client.setFastTapeLoad(enabled);
 });
 
+const savedAudioMode = (localStorage.getItem("zx_spectrum_audio_mode") as "mono" | "acb" | "abc" | null) ?? "acb";
+if (audioModeSelect) audioModeSelect.value = savedAudioMode;
+client.setAudioMode(savedAudioMode);
+
+audioModeSelect?.addEventListener("change", () => {
+  const mode = (audioModeSelect.value as "mono" | "acb" | "abc") || "acb";
+  localStorage.setItem("zx_spectrum_audio_mode", mode);
+  client.setAudioMode(mode);
+});
+
 let paused = false;
 let romLoaded = false;
 let tapePlaying = false;
 let libraryOpen = localStorage.getItem("zx_spectrum_library_open") === "true";
 let controlsOpen = localStorage.getItem("zx_spectrum_controls_open") === "true";
+let activeLeftTab: "tapes" | "snapshots" =
+  (localStorage.getItem("zx_spectrum_left_tab") as "tapes" | "snapshots" | null) ?? "tapes";
 let pendingTapeEntry: TapeEntry | null = null;
 let libraryFilterText = "";
 let libraryFilterFormat: "all" | TapeFormat = "all";
 const selectedTapeIds = new Set<string>();
+
+function setLeftTab(tab: "tapes" | "snapshots"): void {
+  activeLeftTab = tab;
+  localStorage.setItem("zx_spectrum_left_tab", tab);
+  if (panelTapesTab) panelTapesTab.style.display = tab === "tapes" ? "flex" : "none";
+  if (panelSnapshotsTab) panelSnapshotsTab.style.display = tab === "snapshots" ? "flex" : "none";
+  leftTabTapesBtn?.classList.toggle("active", tab === "tapes");
+  leftTabSnapshotsBtn?.classList.toggle("active", tab === "snapshots");
+  tapeLibraryToggle?.classList.toggle("active", libraryOpen && tab === "tapes");
+  snapshotsPanelToggle?.classList.toggle("active", libraryOpen && tab === "snapshots");
+}
+
+function updateMemoryInfoUi(): void {
+  const model = currentModel();
+  const memModelVal = document.getElementById("mem-model-val");
+  const memRamVal = document.getElementById("mem-ram-val");
+  const memArchVal = document.getElementById("mem-arch-val");
+  if (!memModelVal || !memRamVal || !memArchVal) return;
+
+  if (model === "48k") {
+    memModelVal.textContent = "48K Sinclair";
+    memRamVal.textContent = "48 KB RAM / 16 KB ROM";
+    memArchVal.textContent = "Contended Bank 1 (0x4000-0x7FFF)";
+  } else if (model === "128k") {
+    memModelVal.textContent = "128K Toastrack / +2";
+    memRamVal.textContent = "128 KB (8x16K) / 32 KB (2x16K ROM)";
+    memArchVal.textContent = "Port 0x7FFD / Contended Banks 1,3,5,7";
+  } else if (model === "plus3") {
+    memModelVal.textContent = "+3 Amstrad";
+    memRamVal.textContent = "128 KB (8x16K) / 64 KB (4x16K ROM)";
+    memArchVal.textContent = "Ports 0x7FFD, 0x1FFD / Contended Banks 4-7";
+  }
+}
 
 function currentModel(): MachineModel {
   return modelSelect.value as MachineModel;
@@ -258,7 +337,7 @@ function updateModalStartBtn(): void {
 }
 
 function formatRomFilename(model: string, files: File[]): string {
-  return model === "48k"
+  return model === "48k" || files.length === 1
     ? files[0]!.name
     : [...files]
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -281,7 +360,7 @@ function validateRomFiles(
       };
     }
     return { ok: true };
-  } else {
+  } else if (model === "128k") {
     if (files.length !== 2) {
       return { ok: false, error: "128K requires exactly two ROM files (128-0.rom, 128-1.rom)." };
     }
@@ -290,28 +369,213 @@ function validateRomFiles(
       return { ok: false, error: `Invalid 128K ROM size (each must be ${ROM_PAGE_SIZE} bytes).` };
     }
     return { ok: true };
+  } else if (model === "plus3") {
+    if (files.length === 1) {
+      if (files[0]!.size !== ROM_PAGE_SIZE * 4) {
+        return {
+          ok: false,
+          error: `Invalid +3 single ROM bundle size: ${files[0]!.size} bytes (expected ${ROM_PAGE_SIZE * 4} bytes / 64KB).`,
+        };
+      }
+      return { ok: true };
+    } else if (files.length === 4) {
+      for (const f of files) {
+        if (f.size !== ROM_PAGE_SIZE) {
+          return {
+            ok: false,
+            error: `Invalid +3 ROM size: "${f.name}" is ${f.size} bytes (expected ${ROM_PAGE_SIZE} bytes).`,
+          };
+        }
+      }
+      return { ok: true };
+    } else {
+      return {
+        ok: false,
+        error: "+3 requires either 4 separate 16KB ROM files (ROM 0-3) or a single 64KB bundle.",
+      };
+    }
   }
+  return { ok: false, error: `Unknown model: ${model}` };
 }
 
 async function readRomFiles(model: string, files: File[]): Promise<ArrayBuffer> {
-  if (model === "48k") {
+  if (model === "48k" || files.length === 1) {
     return files[0]!.arrayBuffer();
   } else {
     const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name));
-    const [rom0, rom1] = await Promise.all(sorted.map((f) => f.arrayBuffer()));
-    if (!rom0 || !rom1) throw new Error("Failed to read ROM files");
-    const combined = new Uint8Array(rom0.byteLength + rom1.byteLength);
-    combined.set(new Uint8Array(rom0), 0);
-    combined.set(new Uint8Array(rom1), rom0.byteLength);
+    const buffers = await Promise.all(sorted.map((f) => f.arrayBuffer()));
+    let totalLen = 0;
+    for (const b of buffers) totalLen += b.byteLength;
+    const combined = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const b of buffers) {
+      combined.set(new Uint8Array(b), offset);
+      offset += b.byteLength;
+    }
     return combined.buffer;
   }
 }
+
+function updateFloppyUiVisibility(): void {
+  if (floppyDriveSection) {
+    floppyDriveSection.style.display = currentModel() === "plus3" ? "block" : "none";
+  }
+}
+
+client.onDiskStatus = (diskStatus) => {
+  if (floppyLed) {
+    floppyLed.classList.toggle("active", diskStatus.motorOn);
+  }
+  if (floppyStatusText) {
+    if (!diskStatus.inserted) {
+      floppyStatusText.textContent = "No disk inserted";
+    } else {
+      floppyStatusText.textContent = `Track ${diskStatus.track}${diskStatus.motorOn ? " (active)" : ""}`;
+    }
+  }
+};
+
+diskFileInput?.addEventListener("change", async () => {
+  const file = diskFileInput.files?.[0];
+  if (!file) return;
+  const data = await file.arrayBuffer();
+  client.loadDisk(data);
+  if (diskFileText) diskFileText.textContent = file.name;
+  if (diskEjectBtn) diskEjectBtn.disabled = false;
+  status.textContent = `Inserted disk "${file.name}".`;
+});
+
+diskEjectBtn?.addEventListener("click", () => {
+  client.ejectDisk();
+  if (diskFileText) diskFileText.textContent = "Insert Disk…";
+  if (diskFileInput) diskFileInput.value = "";
+  if (diskEjectBtn) diskEjectBtn.disabled = true;
+  if (floppyStatusText) floppyStatusText.textContent = "No disk inserted";
+  if (floppyLed) floppyLed.classList.remove("active");
+  status.textContent = "Disk ejected.";
+});
+
+let activeSaveStateSlot = 1;
+
+async function refreshSaveStateSlotIndicators(): Promise<void> {
+  const model = currentModel();
+  const allStates = await getAllSaveStates(model);
+  const savedSlots = new Set(allStates.map((s) => s.slot));
+  const slotButtons = saveStateSlots?.querySelectorAll(".slot-btn");
+  slotButtons?.forEach((btn) => {
+    const slot = parseInt(btn.getAttribute("data-slot") ?? "0", 10);
+    btn.classList.toggle("active", slot === activeSaveStateSlot);
+    btn.classList.toggle("has-state", savedSlots.has(slot));
+  });
+}
+
+async function updateSaveStatePreview(slot: number): Promise<void> {
+  activeSaveStateSlot = slot;
+  if (snapshotFileText) {
+    snapshotFileText.textContent = `Load into Slot ${slot} (Z80, SNA)…`;
+  }
+  const exportSlotBtnText = document.getElementById("export-slot-btn-text");
+  if (exportSlotBtnText) {
+    exportSlotBtnText.textContent = `Export Slot ${slot}`;
+  }
+  await refreshSaveStateSlotIndicators();
+  const model = currentModel();
+  const entry = await loadStateFromStorage(slot, model);
+  if (entry) {
+    if (stateThumbnail) {
+      stateThumbnail.innerHTML = `<img src="${entry.screenshot}" alt="Slot ${slot} snapshot" />`;
+    }
+    if (stateTimestamp) {
+      const date = new Date(entry.timestamp);
+      const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const label = entry.name ? `${entry.name} (${timeStr})` : `${date.toLocaleDateString()} ${timeStr}`;
+      stateTimestamp.textContent = `Slot ${slot}: ${label}`;
+    }
+    if (quickLoadBtn) quickLoadBtn.disabled = false;
+    if (deleteStateBtn) deleteStateBtn.disabled = false;
+    if (saveSnapshotBtn) saveSnapshotBtn.disabled = false;
+    if (snapshotFormatSelect) {
+      snapshotFormatSelect.disabled = false;
+      if (model === "plus3") {
+        snapshotFormatSelect.value = "z80";
+      } else if (entry.format === "sna") {
+        snapshotFormatSelect.value = "sna";
+      } else {
+        snapshotFormatSelect.value = "z80";
+      }
+    }
+  } else {
+    if (stateThumbnail) {
+      stateThumbnail.textContent = "Empty slot";
+    }
+    if (stateTimestamp) {
+      stateTimestamp.textContent = `Slot ${slot}: Empty slot`;
+    }
+    if (quickLoadBtn) quickLoadBtn.disabled = true;
+    if (deleteStateBtn) deleteStateBtn.disabled = true;
+    if (saveSnapshotBtn) saveSnapshotBtn.disabled = true;
+    if (snapshotFormatSelect) snapshotFormatSelect.disabled = true;
+  }
+}
+
+async function quickSaveCurrentSlot(): Promise<void> {
+  if (!romLoaded) {
+    status.textContent = "Load a ROM first.";
+    return;
+  }
+  const model = currentModel();
+  const res = await client.saveState(activeSaveStateSlot);
+  const screenshot = canvas.toDataURL("image/png");
+  await saveStateToStorage(activeSaveStateSlot, model, res.data, screenshot, "Quick Save", "z80");
+  await updateSaveStatePreview(activeSaveStateSlot);
+  status.textContent = `Saved state to slot ${activeSaveStateSlot}.`;
+}
+
+async function quickLoadCurrentSlot(): Promise<void> {
+  if (!romLoaded) {
+    status.textContent = "Load a ROM first.";
+    return;
+  }
+  const model = currentModel();
+  const entry = await loadStateFromStorage(activeSaveStateSlot, model);
+  if (!entry) {
+    status.textContent = `Slot ${activeSaveStateSlot} is empty.`;
+    return;
+  }
+  client.loadState(activeSaveStateSlot, entry.data.slice(0), entry.model, entry.format);
+  const nameLabel = entry.name ? ` (${entry.name})` : "";
+  status.textContent = `Loaded state from slot ${activeSaveStateSlot}${nameLabel}.`;
+  paused = false;
+  updatePauseUi();
+  await ensureAudioStarted();
+}
+
+async function deleteCurrentSlot(): Promise<void> {
+  const model = currentModel();
+  await deleteStateFromStorage(activeSaveStateSlot, model);
+  await updateSaveStatePreview(activeSaveStateSlot);
+  status.textContent = `Deleted state in slot ${activeSaveStateSlot}.`;
+}
+
+saveStateSlots?.addEventListener("click", (e) => {
+  const target = (e.target as HTMLElement).closest(".slot-btn") as HTMLElement | null;
+  if (!target) return;
+  const slot = parseInt(target.getAttribute("data-slot") ?? "1", 10);
+  void updateSaveStatePreview(slot);
+});
+
+quickSaveBtn?.addEventListener("click", () => void quickSaveCurrentSlot());
+quickLoadBtn?.addEventListener("click", () => void quickLoadCurrentSlot());
+deleteStateBtn?.addEventListener("click", () => void deleteCurrentSlot());
 
 async function restoreSession(): Promise<void> {
   const lastModel = loadLastModelFromStorage();
   if (lastModel) {
     modelSelect.value = lastModel;
   }
+  updateFloppyUiVisibility();
+  updateMemoryInfoUi();
+  await updateSaveStatePreview(activeSaveStateSlot);
   const model = currentModel();
   const storedRom = loadRomFromStorage(model);
 
@@ -325,13 +589,17 @@ async function restoreSession(): Promise<void> {
     if (storedMedia) {
       if (storedMedia.format === "sna" || storedMedia.format === "z80") {
         client.loadSnapshot(storedMedia.format, storedMedia.data.slice(0));
+      } else if (storedMedia.format === "dsk") {
+        client.loadDisk(storedMedia.data.slice(0));
+        if (diskFileText) diskFileText.textContent = storedMedia.filename;
+        if (diskEjectBtn) diskEjectBtn.disabled = false;
       } else {
         client.loadTape(storedMedia.format, storedMedia.data.slice(0));
       }
       if (mediaFileText) mediaFileText.textContent = storedMedia.filename;
       status.textContent = `${model.toUpperCase()} ROM restored (${storedRom.filename}). Loaded "${storedMedia.filename}". Ready.`;
     } else {
-      status.textContent = `${model.toUpperCase()} ROM restored (${storedRom.filename}). Load a snapshot or tape to play.`;
+      status.textContent = `${model.toUpperCase()} ROM restored (${storedRom.filename}). Load a snapshot, tape, or disk to play.`;
     }
     await ensureAudioStarted();
   } else {
@@ -458,12 +726,15 @@ function toggleLibrary(): void {
   tapeLibraryPanel.classList.toggle("open", libraryOpen);
   document.body.classList.toggle("library-open", libraryOpen);
   localStorage.setItem("zx_spectrum_library_open", libraryOpen.toString());
+  tapeLibraryToggle?.classList.toggle("active", libraryOpen && activeLeftTab === "tapes");
+  snapshotsPanelToggle?.classList.toggle("active", libraryOpen && activeLeftTab === "snapshots");
   if (libraryOpen && controlsOpen) toggleControls();
 }
 
 function initLibraryState(): void {
   tapeLibraryPanel.classList.toggle("open", libraryOpen);
   document.body.classList.toggle("library-open", libraryOpen);
+  setLeftTab(activeLeftTab);
 }
 
 function toggleControls(): void {
@@ -606,13 +877,29 @@ async function loadMediaFile(file: File): Promise<void> {
 
   const snapshotExt = Object.keys(SNAPSHOT_EXTENSIONS).find((ext) => name.endsWith(ext));
   const tapeExt = Object.keys(TAPE_EXTENSIONS).find((ext) => name.endsWith(ext));
+  const diskExt = Object.keys(DISK_EXTENSIONS).find((ext) => name.endsWith(ext));
 
   if (snapshotExt) {
     const format = SNAPSHOT_EXTENSIONS[snapshotExt as keyof typeof SNAPSHOT_EXTENSIONS];
     const sessionData = data.slice(0);
+    const slotData = data.slice(0);
     client.loadSnapshot(format, data);
     if (mediaFileText) mediaFileText.textContent = file.name;
     await saveSessionMedia({ filename: file.name, format, data: sessionData });
+
+    paused = false;
+    updatePauseUi();
+    await ensureAudioStarted();
+
+    // Allow emulator to render a frame onto canvas before capturing thumbnail
+    await new Promise((r) => setTimeout(r, 60));
+    const screenshot = canvas.toDataURL("image/png");
+    const model = currentModel();
+    await saveStateToStorage(activeSaveStateSlot, model, slotData, screenshot, file.name, format);
+    await updateSaveStatePreview(activeSaveStateSlot);
+
+    status.textContent = `Loaded "${file.name}" into Memory Slot ${activeSaveStateSlot}. Ready.`;
+    return;
   } else if (tapeExt) {
     const format = TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS];
     const sessionData = data.slice(0);
@@ -632,8 +919,22 @@ async function loadMediaFile(file: File): Promise<void> {
     updatePauseUi();
     await ensureAudioStarted();
     return;
+  } else if (diskExt) {
+    if (currentModel() !== "plus3") {
+      const ok = window.confirm("Switch to +3 model to load this disk?");
+      if (!ok) return;
+      await switchModel("plus3");
+    }
+    client.loadDisk(data);
+    if (diskFileText) diskFileText.textContent = file.name;
+    if (diskEjectBtn) diskEjectBtn.disabled = false;
+    status.textContent = `Inserted disk "${file.name}".`;
+    paused = false;
+    updatePauseUi();
+    await ensureAudioStarted();
+    return;
   } else {
-    status.textContent = `Unrecognized file type: "${file.name}" (expected .sna/.z80/.tap/.tzx)`;
+    status.textContent = `Unrecognized file type: "${file.name}" (expected .sna/.z80/.tap/.tzx/.dsk)`;
     return;
   }
 
@@ -647,6 +948,26 @@ let previousModel: MachineModel = currentModel();
 let rafHandle = 0;
 let frameLoopRunning = false;
 
+async function switchModel(newModel: MachineModel): Promise<void> {
+  modelSelect.value = newModel;
+  previousModel = newModel;
+  localStorage.setItem("zx_spectrum_last_model", newModel);
+  updateFloppyUiVisibility();
+  updateMemoryInfoUi();
+  await updateSaveStatePreview(activeSaveStateSlot);
+  const storedRom = loadRomFromStorage(newModel);
+  if (storedRom) {
+    client.loadRom(newModel, storedRom.data.slice(0));
+    client.reset();
+    client.resume();
+    romLoaded = true;
+    status.textContent = `${newModel.toUpperCase()} ROM loaded from cache (${storedRom.filename}).`;
+    await ensureAudioStarted();
+  } else {
+    showSetupModal();
+  }
+}
+
 modelSelect.addEventListener("change", async () => {
   const model = currentModel();
 
@@ -658,19 +979,7 @@ modelSelect.addEventListener("change", async () => {
     }
   }
 
-  previousModel = model;
-  localStorage.setItem("zx_spectrum_last_model", model);
-  const storedRom = loadRomFromStorage(model);
-  if (storedRom) {
-    client.loadRom(model, storedRom.data.slice(0));
-    client.reset();
-    client.resume();
-    romLoaded = true;
-    status.textContent = `${model.toUpperCase()} ROM loaded from cache (${storedRom.filename}).`;
-    await ensureAudioStarted();
-  } else {
-    showSetupModal();
-  }
+  await switchModel(model);
 });
 
 snapshotInput.addEventListener("change", async () => {
@@ -740,7 +1049,11 @@ modalStartBtn.addEventListener("click", async () => {
   const model = modalModelSelect.value as MachineModel;
 
   modelSelect.value = model;
+  previousModel = model;
   localStorage.setItem("zx_spectrum_last_model", model);
+  updateFloppyUiVisibility();
+  updateMemoryInfoUi();
+  await updateSaveStatePreview(activeSaveStateSlot);
   saveRomToStorage({ model, filename: modalRomFilename, data: modalRomData.slice(0) });
 
   client.loadRom(model, modalRomData);
@@ -749,7 +1062,7 @@ modalStartBtn.addEventListener("click", async () => {
   romLoaded = true;
   paused = false;
   updatePauseUi();
-  status.textContent = `${model.toUpperCase()} ROM loaded and reset. Load a snapshot or tape to play.`;
+  status.textContent = `${model.toUpperCase()} ROM loaded and reset. Load a snapshot, tape, or disk to play.`;
 
   hideSetupModal();
   await ensureAudioStarted();
@@ -775,14 +1088,32 @@ resetBtn.addEventListener("click", () => {
 });
 
 saveSnapshotBtn.addEventListener("click", async () => {
-  if (!romLoaded) {
-    status.textContent = "Load a ROM first.";
+  const model = currentModel();
+  const entry = await loadStateFromStorage(activeSaveStateSlot, model);
+  if (!entry) {
+    status.textContent = `Slot ${activeSaveStateSlot} is empty.`;
     return;
   }
-  const data = await client.saveSnapshot();
-  const model = currentModel();
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const filename = `spectrum-${model}-${stamp}.sna`;
+
+  const requestedFormat = snapshotFormatSelect?.value === "sna" ? "sna" : "z80";
+  if (model === "plus3" && requestedFormat === "sna") {
+    status.textContent = "Note: .sna does not support +3 paging. Exporting as .z80 instead.";
+  }
+  const actualFormat = model === "plus3" && requestedFormat === "sna" ? "z80" : requestedFormat;
+  const entryFormat = entry.format ?? "z80";
+
+  let data: ArrayBuffer;
+  if (entryFormat === actualFormat) {
+    data = entry.data;
+  } else {
+    data = await client.exportState(entry.data.slice(0), model, actualFormat, entryFormat);
+  }
+
+  let baseName = entry.name ? stripExtension(entry.name) : `slot${activeSaveStateSlot}-${model}`;
+  if (baseName.toLowerCase() === "quick save") {
+    baseName = `slot${activeSaveStateSlot}-${model}-${Date.now()}`;
+  }
+  const filename = `${baseName}.${actualFormat}`;
 
   const blob = new Blob([data], { type: "application/octet-stream" });
   const url = URL.createObjectURL(blob);
@@ -792,7 +1123,7 @@ saveSnapshotBtn.addEventListener("click", async () => {
   a.click();
   URL.revokeObjectURL(url);
 
-  status.textContent = `Saved snapshot "${filename}".`;
+  status.textContent = `Exported Slot ${activeSaveStateSlot} as "${filename}".`;
 });
 
 tapeBtn.addEventListener("click", () => {
@@ -808,8 +1139,39 @@ tapeEjectBtn?.addEventListener("click", async () => {
   status.textContent = "Tape ejected.";
 });
 
-// Tape library event listeners
-tapeLibraryToggle.addEventListener("click", toggleLibrary);
+// Left panel tabs & toggle event listeners
+tapeLibraryToggle.addEventListener("click", () => {
+  if (!libraryOpen) {
+    setLeftTab("tapes");
+    toggleLibrary();
+  } else if (activeLeftTab !== "tapes") {
+    setLeftTab("tapes");
+  } else {
+    toggleLibrary();
+  }
+});
+
+snapshotsPanelToggle?.addEventListener("click", () => {
+  if (!libraryOpen) {
+    setLeftTab("snapshots");
+    toggleLibrary();
+  } else if (activeLeftTab !== "snapshots") {
+    setLeftTab("snapshots");
+  } else {
+    toggleLibrary();
+  }
+});
+
+leftTabTapesBtn?.addEventListener("click", () => setLeftTab("tapes"));
+leftTabSnapshotsBtn?.addEventListener("click", () => setLeftTab("snapshots"));
+
+snapshotFileInput?.addEventListener("change", async () => {
+  const file = snapshotFileInput.files?.[0];
+  if (file) {
+    await loadMediaFile(file);
+    snapshotFileInput.value = "";
+  }
+});
 tapeLibraryAddBtn.addEventListener("click", () => tapeLibraryInput.click());
 tapeLibraryInput.addEventListener("change", () => onLibraryFileSelect(tapeLibraryInput.files));
 
@@ -877,6 +1239,16 @@ const activeSymbolKeys = new Map<string, { row: number; bit: number }>();
 
 window.addEventListener("keydown", (e) => {
   onFirstGesture();
+  if (e.code === "F5") {
+    e.preventDefault();
+    void quickSaveCurrentSlot();
+    return;
+  }
+  if (e.code === "F8") {
+    e.preventDefault();
+    void quickLoadCurrentSlot();
+    return;
+  }
   if (normalKeyboardToggle.checked) {
     const target = SYMBOL_CHAR_MAP[e.key];
     if (target) {
@@ -944,8 +1316,9 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
       return { pngBase64: canvas.toDataURL("image/png").split(",")[1] };
     case "saveSnapshot": {
       if (!romLoaded) throw new Error("saveSnapshot: no ROM loaded yet.");
-      const data = await client.saveSnapshot();
-      return { format: "sna", dataBase64: arrayBufferToBase64(data) };
+      const format = message.format ?? "sna";
+      const data = await client.saveSnapshot(format);
+      return { format, dataBase64: arrayBufferToBase64(data) };
     }
     case "loadRom":
       client.loadRom(message.model, base64ToArrayBuffer(message.romBase64));
@@ -964,6 +1337,12 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
       return null;
     case "stopTape":
       client.stopTape();
+      return null;
+    case "loadDisk":
+      client.loadDisk(base64ToArrayBuffer(message.dataBase64));
+      return null;
+    case "ejectDisk":
+      client.ejectDisk();
       return null;
     case "setFastTapeLoad":
       client.setFastTapeLoad(message.enabled);
