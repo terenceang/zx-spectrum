@@ -42,6 +42,11 @@ export class Memory128k implements MemoryDevice {
     return (this.pagingRegister & 0x10) !== 0 ? 1 : 0;
   }
 
+  /** Current port 0x7FFD value — snapshot saving reads this back. */
+  get port7ffd(): number {
+    return this.pagingRegister;
+  }
+
   private get pagedRamBank(): number {
     return this.pagingRegister & 0x07;
   }
@@ -91,6 +96,13 @@ export class Memory128k implements MemoryDevice {
    * used by snapshot loaders, which know exactly which bank each block belongs to. */
   pokeBank(bankIndex: number, data: Uint8Array): void {
     this.banks[bankIndex]!.set(data.subarray(0, ROM_PAGE_SIZE));
+  }
+
+  /** Direct read of a specific physical RAM bank (0-7), bypassing paging — used by
+   * snapshot saving. WARNING: returns a mutable reference to the internal buffer;
+   * copy before mutating elsewhere. */
+  peekBank(bankIndex: number): Uint8Array {
+    return this.banks[bankIndex]!;
   }
 
   /** The RAM bank the ULA currently reads for the display file + attributes: bank

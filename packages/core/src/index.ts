@@ -29,7 +29,7 @@ export { Machine48k } from "./machines/machine48k.js";
 export { Machine128k } from "./machines/machine128k.js";
 export type { MachineModel, FrameBuffer } from "./machines/types.js";
 
-export { parseSna } from "./loaders/sna.js";
+export { parseSna, writeSna48k, writeSna128k } from "./loaders/sna.js";
 export type { ParsedSnaSnapshot } from "./loaders/sna.js";
 export { parseZ80 } from "./loaders/z80.js";
 export type { ParsedZ80Snapshot, Z80HardwareMode } from "./loaders/z80.js";

@@ -20,13 +20,15 @@ export type HostToWorkerMessage =
    * first instruction after reset, instead of the normal cold-boot into ROM 0 (the
    * 128 menu). Used by the tape-library instant-load flow — see EmulatorClient.reset
    * for why. No effect on the 48K machine (it has no ROM paging). */
-  | { type: "reset"; pageRom1?: boolean };
+  | { type: "reset"; pageRom1?: boolean }
+  | { type: "saveSnapshot" };
 
 export type WorkerToHostMessage =
   | { type: "ready" }
   | { type: "frame"; pixels: ArrayBuffer; width: number; height: number; audio: ArrayBuffer }
   | { type: "tapeStatus"; playing: boolean }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "snapshotData"; format: "sna"; data: ArrayBuffer };
 
 export const MAX_FRAME_WIDTH = 512;
 export const MAX_FRAME_HEIGHT = 384;

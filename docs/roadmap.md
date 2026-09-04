@@ -151,6 +151,23 @@ Daze, Spy vs Spy, War in Middle Earth, Yie Ar Kung-Fu, aydete, Attribute2You,
 128DEMO) now loads cleanly via the library's instant-load click with zero
 console errors.
 
+## Snapshot save (2026-09-05)
+
+- [x] **`.sna` writer**: `writeSna48k`/`writeSna128k` (`packages/core/src/loaders/sna.ts`)
+  serialize a live machine's CPU/memory/border state to standard `.sna` bytes — the
+  reverse of the existing `parseSna`/`applySnapshotTo48k`/`applySnapshotTo128k`.
+  Round-trip tested (write → parse → apply → verify) for both variants.
+- [x] **UI**: a Save Snapshot toolbar button (next to Reset) downloads
+  `spectrum-<model>-<timestamp>.sna`.
+- [x] **MCP**: a `save_snapshot` tool (headless or a connected browser instance,
+  mirroring `read_screen`'s pattern).
+
+Motivated by a real gap hit this session: asked to get an `.sna` for a specific
+game, no pre-made one existed at the usual preservation archives (only `.tap`/`.tzx`
+— `.sna` isn't really a distribution format, it's a snapshot of wherever someone's
+emulator happened to be), so producing one meant loading the tape and dumping
+machine state by hand. See "Snapshot save/load" in `docs/architecture.md`.
+
 ## Phase 4 — +3 support
 
 - [ ] Second paging port (`0x1ffd`) + special all-RAM modes in `MemoryPlus3`

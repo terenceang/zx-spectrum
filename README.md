@@ -18,6 +18,8 @@ includes full transport controls (play/stop, eject, loading screech tone toggle,
 an optional fast tape instant load option). Tapes you've loaded are saved to a library
 panel (IndexedDB-backed); clicking one there drives a full `LOAD ""` end to end and
 plays it in well under a second, fast-load forced on regardless of the toggle's setting.
+The Save Snapshot button (next to Reset) captures the machine's current state as a
+`.sna` file and downloads it.
 
 ### ROMs
 
@@ -54,8 +56,9 @@ send; without them the app still works, just slower.
 ## MCP server
 
 `packages/mcp-server` exposes the emulator as MCP tools (load ROM/snapshot/tape with
-optional fast-load, toggle fast tape load, press keys, run frames, read the screen as a PNG)
-so an MCP client can drive it headlessly. Build it (`npm run build --workspace=@zx-spectrum/mcp-server`,
+optional fast-load, save the current state as a `.sna` snapshot, toggle fast tape load,
+press keys, run frames, read the screen as a PNG) so an MCP client can drive it
+headlessly. Build it (`npm run build --workspace=@zx-spectrum/mcp-server`,
 or just `npm run build`), then point an MCP client at `node packages/mcp-server/dist/index.js` —
 already registered in `.mcp.json` for Claude Code in this repo.
 

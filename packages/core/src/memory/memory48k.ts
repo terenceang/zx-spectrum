@@ -21,6 +21,13 @@ export class Memory48k implements MemoryDevice {
     this.ram.set(ram.subarray(0, RAM_48K_SIZE));
   }
 
+  /** Full RAM image (0x4000-0xFFFF), 49152 bytes — snapshot saving reads this back.
+   * WARNING: returns a mutable reference to the internal buffer; copy before mutating
+   * elsewhere. */
+  readRam(): Uint8Array {
+    return this.ram;
+  }
+
   read8(address: number): number {
     const addr = address & 0xffff;
     return addr < 0x4000 ? this.rom[addr]! : this.ram[addr - 0x4000]!;

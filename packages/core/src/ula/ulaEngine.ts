@@ -18,7 +18,7 @@ export interface ScreenSource {
 export class UlaEngine {
   readonly beeper = new Beeper();
 
-  private borderColor = 0;
+  private borderColorField = 0;
   // NOTE: borderChanges is cleared per frame (beginFrame), so it doesn't leak across
   // frames. However, programs that rapidly toggle the border (raster effects) can push
   // thousands of {tState, color} objects per frame, causing GC pressure. A flat array
@@ -34,26 +34,31 @@ export class UlaEngine {
   ) {}
 
   reset(): void {
-    this.borderColor = 0;
+    this.borderColorField = 0;
     this.borderChanges = [{ tState: 0, color: 0 }];
     this.flashPhase = false;
     this.flashFrameCounter = 0;
     this.beeper.reset();
   }
 
+  /** Current border color (0-7) — snapshot saving reads this back. */
+  get borderColor(): number {
+    return this.borderColorField;
+  }
+
   /** Sets the border color directly (snapshot loading), bypassing the port-write
    * path so it doesn't also touch the beeper level. */
   setBorder(color: number): void {
-    this.borderColor = color & 0x07;
-    this.borderChanges = [{ tState: 0, color: this.borderColor }];
+    this.borderColorField = color & 0x07;
+    this.borderChanges = [{ tState: 0, color: this.borderColorField }];
   }
 
   /** Port 0xFE write: border (bits 0-2), MIC (bit 3, not modeled for playback),
    * beeper (bit 4). */
   writePort(tState: number, value: number): void {
     const color = value & 0x07;
-    if (color !== this.borderColor) {
-      this.borderColor = color;
+    if (color !== this.borderColorField) {
+      this.borderColorField = color;
       this.borderChanges.push({ tState, color });
     }
     this.beeper.setLevel(tState, (value >> 4) & 1 ? 1 : 0);
@@ -87,7 +92,7 @@ export class UlaEngine {
       this.flashFrameCounter = 0;
       this.flashPhase = !this.flashPhase;
     }
-    this.borderChanges = [{ tState: 0, color: this.borderColor }];
+    this.borderChanges = [{ tState: 0, color: this.borderColorField }];
   }
 
   /** Call once per frame after the CPU has run to the frame's T-state budget. */

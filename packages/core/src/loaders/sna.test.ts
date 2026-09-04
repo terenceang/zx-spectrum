@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { RegIndex, WordIndex } from "../cpu/registers.js";
-import { parseSna } from "./sna.js";
+import { applySnapshotTo128k, applySnapshotTo48k } from "./apply.js";
+import { Machine128k } from "../machines/machine128k.js";
+import { Machine48k } from "../machines/machine48k.js";
+import { parseSna, writeSna128k, writeSna48k } from "./sna.js";
 
 function buildSna48k(overrides: { sp: number; border: number; ram: [number, number][] }) {
   const bytes = new Uint8Array(27 + 49152);
@@ -48,5 +51,74 @@ describe("parseSna", () => {
 
   it("rejects a file with the wrong length", () => {
     expect(() => parseSna(new Uint8Array(100))).toThrow();
+  });
+});
+
+describe("writeSna48k", () => {
+  it("round-trips through parseSna and applySnapshotTo48k", () => {
+    const machine = new Machine48k();
+    machine.reset();
+    machine.memory.poke8(0x8000, 0xaa);
+    machine.memory.poke8(0xffff, 0x55);
+    machine.cpu.regs.pc = 0x6789;
+    machine.cpu.regs.sp = 0x8100;
+    machine.cpu.regs.bytes[RegIndex.A] = 0x42;
+    machine.ula.setBorder(5);
+
+    const bytes = writeSna48k(machine, machine.ula.borderColor);
+    expect(bytes.length).toBe(27 + 49152);
+
+    const snapshot = parseSna(bytes);
+    expect(snapshot.border).toBe(5);
+    expect(snapshot.cpu.registerWords[WordIndex.PC]).toBe(0x6789);
+    // SP round-trips: writeSna48k pushes PC below the original SP, and parseSna
+    // pops it back off, landing on the original value.
+    expect(snapshot.cpu.registerWords[WordIndex.SP]).toBe(0x8100);
+    expect(snapshot.cpu.registerBytes[RegIndex.A]).toBe(0x42);
+    expect(snapshot.ram[0x8000 - 0x4000]).toBe(0xaa);
+    expect(snapshot.ram[0xffff - 0x4000]).toBe(0x55);
+
+    const reloaded = new Machine48k();
+    applySnapshotTo48k(reloaded, snapshot);
+    expect(reloaded.cpu.regs.pc).toBe(0x6789);
+    expect(reloaded.cpu.regs.sp).toBe(0x8100);
+    expect(reloaded.memory.read8(0x8000)).toBe(0xaa);
+    expect(reloaded.memory.read8(0xffff)).toBe(0x55);
+  });
+});
+
+describe("writeSna128k", () => {
+  it("round-trips through parseSna and applySnapshotTo128k, including banked RAM", () => {
+    const machine = new Machine128k();
+    machine.reset();
+    machine.memory.writePagingRegister(0x03); // page RAM bank 3 in at 0xC000
+    machine.memory.poke8(0x4000, 0x11); // bank 5
+    machine.memory.poke8(0x8000, 0x22); // bank 2
+    machine.memory.poke8(0xc000, 0x33); // bank 3 (currently paged)
+    machine.memory.pokeBank(6, new Uint8Array(16384).fill(0x66)); // paged-out bank
+    machine.cpu.regs.pc = 0xabcd;
+    machine.cpu.regs.sp = 0xff00;
+    machine.ula.setBorder(2);
+
+    const bytes = writeSna128k(machine, machine.ula.borderColor);
+
+    const snapshot = parseSna(bytes);
+    expect(snapshot.model).toBe("128k");
+    expect(snapshot.cpu.registerWords[WordIndex.PC]).toBe(0xabcd);
+    expect(snapshot.cpu.registerWords[WordIndex.SP]).toBe(0xff00);
+    expect(snapshot.port7ffd).toBe(0x03);
+    const bank6 = snapshot.pagedBanks?.find((b) => b.bank === 6);
+    expect(bank6?.data.every((byte) => byte === 0x66)).toBe(true);
+
+    const reloaded = new Machine128k();
+    applySnapshotTo128k(reloaded, snapshot);
+    expect(reloaded.cpu.regs.pc).toBe(0xabcd);
+    reloaded.memory.writePagingRegister(0x00);
+    expect(reloaded.memory.read8(0x4000)).toBe(0x11);
+    expect(reloaded.memory.read8(0x8000)).toBe(0x22);
+    reloaded.memory.writePagingRegister(0x03);
+    expect(reloaded.memory.read8(0xc000)).toBe(0x33);
+    reloaded.memory.writePagingRegister(0x06);
+    expect(reloaded.memory.read8(0xc000)).toBe(0x66);
   });
 });

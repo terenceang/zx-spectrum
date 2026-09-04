@@ -16,7 +16,7 @@ import {
   loadLastModel as loadLastModelFromStorage,
 } from "./ui/romStorage.js";
 import { EmulatorClient } from "./worker-client.js";
-import { base64ToArrayBuffer } from "./utils/base64.js";
+import { arrayBufferToBase64, base64ToArrayBuffer } from "./utils/base64.js";
 import {
   addTape,
   removeTape,
@@ -33,6 +33,7 @@ const snapshotInput = document.getElementById("snapshot-input") as HTMLInputElem
 const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElement | null;
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
 const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement;
+const saveSnapshotBtn = document.getElementById("save-snapshot-btn") as HTMLButtonElement;
 const tapeBtn = document.getElementById("tape-btn") as HTMLButtonElement;
 const tapeEjectBtn = document.getElementById("tape-eject-btn") as HTMLButtonElement | null;
 const muteBtn = document.getElementById("mute-btn") as HTMLButtonElement | null;
@@ -653,6 +654,27 @@ resetBtn.addEventListener("click", () => {
   status.textContent = "System reset.";
 });
 
+saveSnapshotBtn.addEventListener("click", async () => {
+  if (!romLoaded) {
+    status.textContent = "Load a ROM first.";
+    return;
+  }
+  const data = await client.saveSnapshot();
+  const model = currentModel();
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `spectrum-${model}-${stamp}.sna`;
+
+  const blob = new Blob([data], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  status.textContent = `Saved snapshot "${filename}".`;
+});
+
 tapeBtn.addEventListener("click", () => {
   if (tapePlaying) client.stopTape();
   else client.playTape();
@@ -758,6 +780,11 @@ async function handleMcpCommand(message: McpBridgeCommand): Promise<unknown> {
       return { model: currentModel(), romLoaded, paused, tapePlaying };
     case "readScreen":
       return { pngBase64: canvas.toDataURL("image/png").split(",")[1] };
+    case "saveSnapshot": {
+      if (!romLoaded) throw new Error("saveSnapshot: no ROM loaded yet.");
+      const data = await client.saveSnapshot();
+      return { format: "sna", dataBase64: arrayBufferToBase64(data) };
+    }
     case "loadRom":
       client.loadRom(message.model, base64ToArrayBuffer(message.romBase64));
       client.reset();

@@ -13,6 +13,7 @@ export type MediaFormat = SnapshotFormat | TapeFormat;
 export type BridgeCommand =
   | { reqId: string; cmd: "getStatus" }
   | { reqId: string; cmd: "readScreen" }
+  | { reqId: string; cmd: "saveSnapshot" }
   | { reqId: string; cmd: "loadRom"; model: MachineModel; romBase64: string }
   | { reqId: string; cmd: "loadSnapshot"; format: SnapshotFormat; dataBase64: string }
   | { reqId: string; cmd: "loadTape"; format: TapeFormat; dataBase64: string }

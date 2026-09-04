@@ -9,6 +9,8 @@ import {
   parseTap,
   parseTzx,
   parseZ80,
+  writeSna128k,
+  writeSna48k,
 } from "@zx-spectrum/core";
 import { AudioRing, FrameRingWriter } from "./ring-buffers.js";
 import {
@@ -166,6 +168,18 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       if (message.pageRom1 && model === "128k") {
         machine128k.memory.writePagingRegister(0x10);
       }
+      break;
+    }
+    case "saveSnapshot": {
+      const machine = currentMachine();
+      const border = machine.ula.borderColor;
+      const data =
+        model === "48k" ? writeSna48k(machine48k, border) : writeSna128k(machine128k, border);
+      // writeSna48k/writeSna128k always allocate a fresh plain Uint8Array, never backed
+      // by a SharedArrayBuffer, so this cast (needed since .buffer's declared type is
+      // the more general ArrayBufferLike) is safe.
+      const buffer = data.buffer as ArrayBuffer;
+      post({ type: "snapshotData", format: "sna", data: buffer }, [buffer]);
       break;
     }
   }

@@ -21,6 +21,8 @@ import {
   parseTap,
   parseTzx,
   parseZ80,
+  writeSna128k,
+  writeSna48k,
 } from "../../core/dist/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -297,6 +299,35 @@ server.registerTool(
         ...(savePath ? [{ type: "text" as const, text: `Saved to ${savePath}` }] : []),
       ],
     };
+  },
+);
+
+server.registerTool(
+  "save_snapshot",
+  {
+    title: "Save snapshot",
+    description:
+      "Captures the current machine state as a .sna file (48K or 128K format, matching " +
+      "whichever model is currently active) and writes it to savePath. Uses a connected " +
+      "browser instance if one is live (see list_instances), otherwise the headless machine.",
+    inputSchema: { ...instanceIdSchema, savePath: z.string() },
+  },
+  async ({ instanceId, savePath }) => {
+    const target = resolveInstance(instanceId);
+    let dataBase64: string;
+    if (target) {
+      ({ dataBase64 } = (await callInstance(target, "saveSnapshot")) as {
+        format: "sna";
+        dataBase64: string;
+      });
+    } else {
+      const m = requireMachine();
+      const border = m.ula.borderColor;
+      const bytes = model === "48k" ? writeSna48k(m as Machine48k, border) : writeSna128k(m as Machine128k, border);
+      dataBase64 = Buffer.from(bytes).toString("base64");
+    }
+    writeFileSync(savePath, Buffer.from(dataBase64, "base64"));
+    return { content: [{ type: "text", text: `Saved snapshot to ${savePath}` }] };
   },
 );
 

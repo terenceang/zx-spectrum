@@ -27,6 +27,7 @@ export class EmulatorClient {
 
   private latestFallbackFrame: Frame | null = null;
   private latestFallbackAudio: Float32Array | null = null;
+  private readonly pendingSnapshotRequests: ((data: ArrayBuffer) => void)[] = [];
   onReady?: () => void;
   onError?: (message: string) => void;
   onTapeStatus?: (playing: boolean) => void;
@@ -63,6 +64,8 @@ export class EmulatorClient {
           height: message.height,
         };
         this.latestFallbackAudio = new Float32Array(message.audio);
+      } else if (message.type === "snapshotData") {
+        this.pendingSnapshotRequests.shift()?.(message.data);
       }
     };
 
@@ -125,6 +128,16 @@ export class EmulatorClient {
    * share the exact same post-reset flow (see confirmInstantLoad in main.ts). */
   reset(pageRom1 = false): void {
     this.send({ type: "reset", pageRom1 });
+  }
+
+  /** Captures the current machine state as a .sna file (48K or 128K format,
+   * matching whichever model is currently active). Requests are answered in the
+   * order sent (one `pendingSnapshotRequests` entry per in-flight request). */
+  saveSnapshot(): Promise<ArrayBuffer> {
+    return new Promise((resolve) => {
+      this.pendingSnapshotRequests.push(resolve);
+      this.send({ type: "saveSnapshot" });
+    });
   }
 
   /** Call once per rAF tick on the main thread. Returns the latest complete frame,

@@ -158,6 +158,36 @@ the next until the previous one landed:
   under sustained back-to-back scripted loads, verified via a full pass through the
   saved tape library.
 
+## Snapshot save/load (`packages/core/src/loaders/sna.ts`, `apply.ts`)
+
+`parseSna` reads a `.sna` file (48K: 27-byte header + 49152 bytes RAM; 128K: the
+same header/RAM shape for banks 5/2/current, plus an explicit PC field, port
+`0x7FFD`, and the remaining banks) into a `ParsedSnaSnapshot`; `applySnapshotTo48k`/
+`applySnapshotTo128k` (`apply.ts`) push it into a live machine. `writeSna48k`/
+`writeSna128k` do the reverse — capture a live machine's CPU/memory/border state
+into `.sna` bytes:
+
+- **48K has no PC field in the format.** The convention (both directions) is that
+  the snapshot-maker pushes PC onto the stack before saving, so loading is
+  effectively a `RET`: `writeSna48k` decrements a copy of SP by 2 and writes PC
+  there in its RAM copy (the live machine's own memory/registers are untouched),
+  matching what `parseSna` expects to pop back off.
+- **128K has an explicit PC field**, so no push-the-stack trick is needed there —
+  SP round-trips as-is.
+- Small read-only accessors were added alongside the existing write ones purely to
+  support this: `Memory48k.readRam()`, `Memory128k.peekBank()`/`.port7ffd`,
+  `UlaEngine.borderColor` (getter next to the pre-existing `setBorder`).
+
+Wired up as: a worker protocol `saveSnapshot` message / `EmulatorClient.saveSnapshot()`
+(promise-based — the one request/response pattern in an otherwise fire-and-forget
+protocol, resolved by matching `snapshotData` replies to queued requests in send
+order) / a **Save Snapshot** toolbar button that downloads `spectrum-<model>-<timestamp>.sna`;
+an MCP `save_snapshot` tool and matching bridge command, mirroring `read_screen`'s
+connected-instance-or-headless pattern; and `writeSna48k`/`writeSna128k` are also
+just directly callable from Node scripts against a headless `Machine48k`/`Machine128k`
+(no browser needed) — this is how `Tapes/SNA/*` in this repo's local (gitignored)
+tape library got seeded from tapes without a distributed `.sna`.
+
 ## Machine composition (`packages/core/src/machines/`)
 
 Both `Machine48k` and `Machine128k` extend `BaseMachine<M extends MemoryDevice>`,
