@@ -121,6 +121,43 @@ Tapes load into the cassette player in the **stopped** state (`isPlaying === fal
 via the UI Play tape button, worker protocol `playTape` message, or MCP `play_tape` tool. When `fastTapeLoad`
 is active, any tape playback running during ROM loader routines (`0x0556` or `0x0569`) transfers blocks
 instantly into memory.
+
+### Tape library one-click instant load (`confirmInstantLoad` in `packages/app/src/main.ts`)
+
+Clicking a saved tape in the library panel drives the emulator through a real `LOAD ""`
+end to end — reset, boot, type the command, play — entirely via simulated keystrokes,
+with `fastTapeLoad` force-enabled so it resolves in well under a second regardless of
+the tape's real length. Getting this reliable took three separate fixes, each masking
+the next until the previous one landed:
+
+- **128K skips the boot-into-menu ROM entirely.** The natural path — reset, boot to
+  the 128 menu (ROM 0), select "Tape Loader" to page in ROM 1 (48 BASIC) — leaves the
+  machine in a state where some multi-stage custom loaders' fast-load trap correctly
+  consumes the first blocks and then never continues (confirmed on Zaxxon via headless
+  instrumentation: works fine from a cold ROM 1 boot, identical to `Machine48k`, but
+  hangs after the ROM 0→ROM 1 transition). `EmulatorClient.reset(pageRom1)` /
+  the `"reset"` protocol message's `pageRom1` field force the 128K paging register
+  (port `0x7FFD`) to ROM 1 before the first instruction executes, so both models cold-boot
+  into 48 BASIC and share one identical post-reset flow — type `LOAD ""` directly, no
+  menu navigation, no model-specific branching.
+- **`playTape()` must run before typing the load command, not after.** The fast-load
+  trap fires on `LD-BYTES`/`LD-SEARCH` regardless of the tape's "playing" state, but
+  `TapeEdgePlayer.start()` (driving `playTape()`) unconditionally rewinds the block
+  cursor to 0. Typing the load command first let the trap consume the header block
+  before `playTape()` reset the cursor back — the next trap call then re-served the
+  header instead of the data block and failed its checksum.
+- **Keystrokes are simulated, not typed by a user, so ROM timing assumptions that
+  hold for a human don't automatically hold here.** Two fixed delays needed margin
+  beyond what the project's own `fastTapeLoad.test.ts` uses (deterministic frame
+  stepping, no wall-clock jitter): the post-reset boot wait (long enough for either
+  ROM to reach its keyboard-polling ready state — 128K's menu-drawing/RAM-test takes
+  much longer than 48K's near-instant prompt) and the inter-keystroke gap (two
+  identical consecutive taps, e.g. the pair of quotes in `LOAD ""`, can get misread
+  as a different symbol if the gap is too tight for the ROM's keyboard scan to see a
+  released matrix in between). Both were widened after intermittent failures surfaced
+  under sustained back-to-back scripted loads, verified via a full pass through the
+  saved tape library.
+
 ## Machine composition (`packages/core/src/machines/`)
 
 Both `Machine48k` and `Machine128k` extend `BaseMachine<M extends MemoryDevice>`,

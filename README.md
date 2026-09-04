@@ -15,7 +15,9 @@ npm run dev       # Vite dev server at http://localhost:5173
 Open the page, select 48K or 128K mode, load the corresponding ROM file(s) (see below),
 then drop in a `.sna`, `.z80` snapshot or `.tap`, `.tzx` tape file to play. Tape playback
 includes full transport controls (play/stop, eject, loading screech tone toggle, and
-an optional fast tape instant load option).
+an optional fast tape instant load option). Tapes you've loaded are saved to a library
+panel (IndexedDB-backed); clicking one there drives a full `LOAD ""` end to end and
+plays it in well under a second, fast-load forced on regardless of the toggle's setting.
 
 ### ROMs
 

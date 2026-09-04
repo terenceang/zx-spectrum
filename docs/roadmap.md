@@ -116,6 +116,41 @@ beeper effects.
   - Fixed buffer capacity truncation bug in `decompressZ80Rle` for snapshots with large compression ratios.
   - Consolidated tape pause and standard ROM block serialization across `.tap` and `.tzx`.
 
+## Tape library instant-load reliability pass (2026-09-05)
+
+The tape library's one-click "select a saved tape, it just loads" flow
+(`confirmInstantLoad`) had never been exercised in a real browser before this
+session — only its individual pieces (`fastTapeLoad` itself, the IndexedDB
+library storage) had unit coverage. A live Chrome smoke test surfaced four
+bugs, each hidden behind the previous one:
+
+- [x] **Detached-buffer crash**: both the tape-library instant-load path and
+  the regular file-picker/drag-drop path sliced an `ArrayBuffer` for session
+  persistence *after* transferring it to the worker (which detaches it),
+  throwing on every single load and silently aborting mid-flow.
+- [x] **Wrong 128K menu keystroke**: the instant-load flow sent `"3\n"`
+  assuming digit keys select the Nth displayed menu row; they're actually
+  direct hotkeys to the ROM's other four entries. `"3"` launched 48 BASIC,
+  not the tape loader.
+- [x] **128K ROM 0→ROM 1 transition hang**: root-caused via headless Z80
+  instrumentation (comparing `Machine48k`, a directly-ROM1-paged
+  `Machine128k`, and the normal ROM0-menu-then-ROM1 path) that navigating the
+  128 menu before loading leaves the machine in a state where multi-stage
+  custom-loader tapes (confirmed on Zaxxon) hang after the first blocks. Fixed
+  by forcing ROM 1 paged in from a cold boot instead (`EmulatorClient.reset(pageRom1)`),
+  bypassing the menu, and unifying the 48K/128K instant-load flow onto one
+  code path. See "Tape library one-click instant load" in `docs/architecture.md`.
+- [x] **Simulated-keystroke timing races**: a pre-existing bug (typing
+  `LOAD ""` letter-by-letter instead of using the single K-cursor keyword
+  key) and two timing margins too tight for sustained scripted use (boot-wait,
+  inter-keystroke gap) — both widened after a full 16-tape library pass.
+
+**Verified**: every tape in the saved library (`Tapes/TAP/*`, 16 files —
+Zaxxon, Prince of Persia, Fairlight x4, The Hobbit x2, Jet Set Willy, Skool
+Daze, Spy vs Spy, War in Middle Earth, Yie Ar Kung-Fu, aydete, Attribute2You,
+128DEMO) now loads cleanly via the library's instant-load click with zero
+console errors.
+
 ## Phase 4 — +3 support
 
 - [ ] Second paging port (`0x1ffd`) + special all-RAM modes in `MemoryPlus3`
@@ -126,14 +161,12 @@ beeper effects.
 
 **Demo**: boot +3 BASIC/+3DOS from a `.dsk` image and load a disk-based game.
 
-## Outstanding from this session
+## Outstanding
 
-- **Interactive browser verification**: the Claude-in-Chrome extension was not
-  connected this session, so UI interaction (file pickers, keyboard, canvas
-  rendering, audio) was verified only via a production `vite build` (catches
-  bundling errors — this is how a `?url`-on-`.ts` MIME-type/transpilation bug in
-  the AudioWorklet processor loading was caught and fixed) and a Node-level
-  `Machine48k` smoke test against a real 48K ROM (confirms the CPU/ULA pipeline
-  produces the expected BASIC boot screen). Recommend an in-browser pass — load a
-  ROM, load a `.sna` game, confirm keyboard input and audio — before calling Phase
-  1 done.
+- **Interactive browser verification is now routine**: as of the 2026-09-05 pass
+  above, Claude-in-Chrome connects and drives the real UI (clicks, keystrokes,
+  console/screenshot inspection) rather than relying only on `vite build` and
+  headless Node smoke tests. The tape-library instant-load flow was verified
+  this way end to end; ROM/`.sna` file-picker loading and audio have not been
+  re-verified interactively since the persistence/tape-library refactors and
+  would be worth another pass.
