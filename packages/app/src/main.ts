@@ -412,20 +412,31 @@ async function confirmInstantLoad(): Promise<void> {
 
   await ensureAudioStarted();
 
-  await sleep(200);
+  // Play before typing the load command, not after: TapeEdgePlayer.start() (driving
+  // playTape()) unconditionally rewinds the block cursor to 0. The fast-load trap
+  // fires on LD-BYTES regardless of "playing" state, so typing LOAD "" first would
+  // let the trap consume the header block (cursor 0 -> 1) before playTape() resets
+  // it back to 0 — the next trap call then re-serves the header instead of the data
+  // block, failing its checksum ("R Tape loading error"). Matches a physical deck
+  // too: you press Play, then type the loader command.
+  client.playTape();
 
   if (model === "48k") {
+    await sleep(200);
     await typeText('load ""\n');
   } else {
     // 128K boot menu: "Tape Loader" is the default-highlighted item after reset,
     // so Enter alone selects it. Digit keys are hotkeys straight to the ROM's other
     // four entries (128 BASIC/Calculator/48 BASIC/Tape Tester), not "select the
     // Nth displayed row" — "3" actually jumps to 48 BASIC, not Tape Loader.
+    // The 128K boot sequence (RAM check, menu draw) takes much longer to reach its
+    // keyboard-polling loop than 48K's near-instant BASIC prompt; 200ms isn't enough
+    // real time and the Enter keypress arrives before the ROM is listening, silently
+    // dropped — the tape then just spins with nothing reading it. 1200ms is what the
+    // project's own fast-load test (fastTapeLoad.test.ts) waits before pressing Enter.
+    await sleep(1200);
     await typeText("\n");
   }
-
-  await sleep(100);
-  client.playTape();
 
   if (mediaFileText) mediaFileText.textContent = entry.filename;
   await saveSessionMedia({ filename: entry.filename, format: entry.format, data: sessionData });
