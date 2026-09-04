@@ -13,13 +13,17 @@ npm run dev       # Vite dev server at http://localhost:5173
 ```
 
 Open the page, select 48K or 128K mode, load the corresponding ROM file(s) (see below),
-then drop in a `.sna`, `.z80` snapshot or `.tap`, `.tzx` tape file to play. Tape playback
-includes full transport controls (play/stop, eject, loading screech tone toggle, and
-an optional fast tape instant load option). Tapes you've loaded are saved to a library
-panel (IndexedDB-backed); clicking one there drives a full `LOAD ""` end to end and
-plays it in well under a second, fast-load forced on regardless of the toggle's setting.
-The Save Snapshot button (next to Reset) captures the machine's current state as a
-`.sna` file and downloads it.
+then drop in a `.sna`, `.z80` snapshot or `.tap`, `.tzx` tape file to play. The canvas
+sits alone in the middle; everything else lives in two collapsible side panels opened
+via the edge tabs. The **left panel** is the tape library (IndexedDB-backed) — it also
+holds tape transport (play/stop, eject), the loading-tone and fast-load toggles, and
+the Insert Tape/Snapshot file picker. Clicking a saved tape there drives a full
+`LOAD ""` end to end and plays it in well under a second, fast-load forced on
+regardless of the toggle's setting; search, format filtering, rename, and bulk
+export/delete are all available too. The **right panel** holds machine controls
+(model, pause/reset, Save Snapshot — captures the machine's current state as a `.sna`
+file and downloads it), audio (mute/volume), keyboard options, and the MCP bridge
+connection status.
 
 ### ROMs
 

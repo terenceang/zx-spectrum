@@ -454,6 +454,26 @@ body.controls-open .app-container {
   flex: 1;
 }
 
+.tape-library-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.tape-library-load {
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.tape-library-load .control-file-btn {
+  width: 100%;
+  max-width: none;
+}
+
 /* --------------------------------------------------------------------------
    Controls Panel (mirror of Tape Library Panel, right-docked)
    -------------------------------------------------------------------------- */
@@ -495,6 +515,18 @@ body.controls-open .app-container {
 .controls-panel-group + .controls-panel-group {
   padding-top: 0.9rem;
   border-top: 1px solid var(--border-subtle);
+}
+
+.control-group-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.controls-panel-group .btn {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 /* --------------------------------------------------------------------------
@@ -822,6 +854,9 @@ body.controls-open .panel-tab-right {
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .btn:focus-visible {

@@ -26,12 +26,6 @@
             <span class="c-blue"></span>
           </div>
         </div>
-
-        <!-- MCP Bridge Indicator -->
-        <div id="mcp-indicator" title="MCP agent bridge connection (ws://localhost:3005)">
-          <span class="dot"></span>
-          <span id="mcp-indicator-text">MCP: offline</span>
-        </div>
       </div>
     </header>
 
@@ -39,30 +33,62 @@
     <aside id="tape-library-panel" class="tape-library-panel" aria-label="Tape Library">
       <div class="tape-library-header">
         <span class="tape-library-title">Tape Library</span>
-        <button id="tape-library-add-btn" class="btn btn-icon" type="button" title="Add tape to library" aria-label="Add tape">
+        <button id="tape-library-add-btn" class="btn" type="button" title="Add tape to library" aria-label="Add tape">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
+          <span>Add</span>
         </button>
       </div>
 
       <div class="tape-library-transport">
-        <button id="tape-btn" class="btn btn-icon btn-accent" type="button" title="Play tape" aria-label="Play/Stop tape">
+        <button id="tape-btn" class="btn btn-accent" type="button" title="Play tape" aria-label="Play/Stop tape">
           <svg class="icon-tape-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
           <svg class="icon-tape-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
             <rect x="5" y="5" width="14" height="14" rx="1"></rect>
           </svg>
+          <span id="tape-btn-label">Play</span>
         </button>
 
-        <button id="tape-eject-btn" class="btn btn-icon" type="button" title="Eject tape" aria-label="Eject tape">
+        <button id="tape-eject-btn" class="btn" type="button" title="Eject tape" aria-label="Eject tape">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 5 5 15 19 15 12 5"></polygon>
             <line x1="5" y1="19" x2="19" y2="19"></line>
           </svg>
+          <span>Eject</span>
         </button>
+      </div>
+
+      <div class="tape-library-options">
+        <label
+          class="control-checkbox"
+          title="Play tape loading audio (pilot tone and data screeching) through the speaker while loading tapes"
+        >
+          <input id="tape-sound-toggle" type="checkbox" checked />
+          <span>Loading tones</span>
+        </label>
+        <label
+          class="control-checkbox"
+          title="Fast tape instant load: intercepts standard ROM loader to load tapes instantly"
+        >
+          <input id="fast-tape-toggle" type="checkbox" />
+          <span>Fast load</span>
+        </label>
+      </div>
+
+      <div class="tape-library-load">
+        <label class="control-file-btn" for="snapshot-input" title="Insert Tape or Snapshot (.tap, .tzx, .sna, .z80)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span class="file-text" id="media-file-text">Insert Tape…</span>
+          <input id="snapshot-input" type="file" accept=".sna,.z80,.tap,.tzx" />
+        </label>
       </div>
 
       <div class="tape-library-filter">
@@ -96,6 +122,8 @@
           </svg>
         </button>
       </div>
+      <!-- Bulk-bar buttons stay icon-only: with the count text + 3 actions already
+           filling this row, adding labels here would overflow the 280px panel. -->
 
       <div id="tape-library-list" class="tape-library-list">
         <div class="tape-library-empty">No tapes yet. Click + to add.</div>
@@ -141,8 +169,8 @@
               <option value="128k">128K</option>
             </select>
           </div>
-          <div class="control-group">
-            <button id="pause-btn" class="btn btn-icon" type="button" title="Pause emulation" aria-label="Pause/Resume">
+          <div class="control-group-stack">
+            <button id="pause-btn" class="btn" type="button" title="Pause emulation" aria-label="Pause/Resume">
               <svg class="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="6" y="4" width="4" height="16"></rect>
                 <rect x="14" y="4" width="4" height="16"></rect>
@@ -150,51 +178,42 @@
               <svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
               </svg>
+              <span id="pause-btn-label">Pause</span>
             </button>
 
-            <button id="reset-btn" class="btn btn-icon" type="button" title="Reset system" aria-label="Reset system">
+            <button id="reset-btn" class="btn" type="button" title="Reset system" aria-label="Reset system">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                 <path d="M3 3v5h5"></path>
               </svg>
+              <span>Reset</span>
             </button>
 
-            <button id="save-snapshot-btn" class="btn btn-icon" type="button" title="Save snapshot (.sna)" aria-label="Save snapshot">
+            <button id="save-snapshot-btn" class="btn" type="button" title="Save snapshot (.sna)" aria-label="Save snapshot">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                 <polyline points="17 21 17 13 7 13 7 21"></polyline>
                 <polyline points="7 3 7 8 15 8"></polyline>
               </svg>
+              <span>Save Snapshot</span>
             </button>
           </div>
         </div>
 
         <div class="controls-panel-group">
           <span class="section-label">AUDIO</span>
+          <button id="mute-btn" class="btn" type="button" title="Mute/Unmute audio" aria-label="Mute/Unmute audio">
+            <svg id="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path class="vol-wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              <path class="vol-wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+            <span id="mute-btn-label">Mute</span>
+          </button>
           <div class="control-group volume-group">
-            <button id="mute-btn" class="btn btn-icon" type="button" title="Mute/Unmute audio" aria-label="Mute/Unmute audio">
-              <svg id="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <path class="vol-wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                <path class="vol-wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-              </svg>
-            </button>
             <input id="volume-slider" type="range" min="0" max="100" value="50" class="volume-slider" title="Volume" aria-label="Volume slider" />
             <span id="volume-value" class="volume-value">50%</span>
           </div>
-        </div>
-
-        <div class="controls-panel-group">
-          <span class="section-label">LOAD</span>
-          <label class="control-file-btn" for="snapshot-input" title="Insert Tape or Snapshot (.tap, .tzx, .sna, .z80)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="17 8 12 3 7 8"></polyline>
-              <line x1="12" y1="3" x2="12" y2="15"></line>
-            </svg>
-            <span class="file-text" id="media-file-text">Insert Tape…</span>
-            <input id="snapshot-input" type="file" accept=".sna,.z80,.tap,.tzx" />
-          </label>
         </div>
 
         <div class="controls-panel-group">
@@ -206,20 +225,14 @@
             <input id="normal-keyboard-toggle" type="checkbox" checked />
             <span>Normal keyboard</span>
           </label>
-          <label
-            class="control-checkbox"
-            title="Play tape loading audio (pilot tone and data screeching) through the speaker while loading tapes"
-          >
-            <input id="tape-sound-toggle" type="checkbox" checked />
-            <span>Loading tones</span>
-          </label>
-          <label
-            class="control-checkbox"
-            title="Fast tape instant load: intercepts standard ROM loader to load tapes instantly"
-          >
-            <input id="fast-tape-toggle" type="checkbox" />
-            <span>Fast load</span>
-          </label>
+        </div>
+
+        <div class="controls-panel-group">
+          <span class="section-label">MCP BRIDGE</span>
+          <div id="mcp-indicator" title="MCP agent bridge connection (ws://localhost:3005)">
+            <span class="dot"></span>
+            <span id="mcp-indicator-text">MCP: offline</span>
+          </div>
         </div>
       </div>
     </aside>

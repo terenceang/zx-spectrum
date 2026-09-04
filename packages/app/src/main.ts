@@ -97,6 +97,7 @@ function updateVolumeUi(): void {
   if (volumeSlider) volumeSlider.value = isMuted ? "0" : percent.toString();
   if (volumeValue) volumeValue.textContent = isMuted ? "Muted" : `${percent}%`;
 
+  const muteLabel = document.getElementById("mute-btn-label");
   if (volumeIcon) {
     if (isMuted || vol === 0) {
       volumeIcon.innerHTML = `
@@ -105,12 +106,14 @@ function updateVolumeUi(): void {
         <line x1="17" y1="9" x2="23" y2="15"></line>
       `;
       muteBtn?.setAttribute("title", "Unmute audio");
+      if (muteLabel) muteLabel.textContent = "Unmute";
     } else if (vol < 0.5) {
       volumeIcon.innerHTML = `
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
       `;
       muteBtn?.setAttribute("title", "Mute audio");
+      if (muteLabel) muteLabel.textContent = "Mute";
     } else {
       volumeIcon.innerHTML = `
         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
@@ -118,6 +121,7 @@ function updateVolumeUi(): void {
         <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
       `;
       muteBtn?.setAttribute("title", "Mute audio");
+      if (muteLabel) muteLabel.textContent = "Mute";
     }
   }
 }
@@ -185,14 +189,17 @@ client.onError = (message) => {
 function updatePauseUi(): void {
   const pauseIcon = pauseBtn.querySelector(".icon-pause") as SVGElement | null;
   const playIcon = pauseBtn.querySelector(".icon-play") as SVGElement | null;
+  const label = document.getElementById("pause-btn-label");
   if (paused) {
     if (pauseIcon) pauseIcon.style.display = "none";
     if (playIcon) playIcon.style.display = "block";
+    if (label) label.textContent = "Resume";
     pauseBtn.setAttribute("title", "Resume emulation");
     pauseBtn.setAttribute("aria-label", "Resume emulation");
   } else {
     if (pauseIcon) pauseIcon.style.display = "block";
     if (playIcon) playIcon.style.display = "none";
+    if (label) label.textContent = "Pause";
     pauseBtn.setAttribute("title", "Pause emulation");
     pauseBtn.setAttribute("aria-label", "Pause emulation");
   }
@@ -201,15 +208,18 @@ function updatePauseUi(): void {
 function updateTapeUi(): void {
   const playIcon = tapeBtn.querySelector(".icon-tape-play") as SVGElement | null;
   const stopIcon = tapeBtn.querySelector(".icon-tape-stop") as SVGElement | null;
+  const label = document.getElementById("tape-btn-label");
   if (tapePlaying) {
     if (playIcon) playIcon.style.display = "none";
     if (stopIcon) stopIcon.style.display = "block";
+    if (label) label.textContent = "Stop";
     tapeBtn.setAttribute("title", "Stop tape");
     tapeBtn.setAttribute("aria-label", "Stop tape");
     tapeBtn.classList.add("playing");
   } else {
     if (playIcon) playIcon.style.display = "block";
     if (stopIcon) stopIcon.style.display = "none";
+    if (label) label.textContent = "Play";
     tapeBtn.setAttribute("title", "Play tape");
     tapeBtn.setAttribute("aria-label", "Play tape");
     tapeBtn.classList.remove("playing");

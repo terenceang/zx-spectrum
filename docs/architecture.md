@@ -114,7 +114,8 @@ Tape loading supports two operational modes:
    the caller's return address for `0x0569`). If a game switches to a custom turbo loader that bypasses
    ROM routines, the pulse player seamlessly continues real-time audio pulse playback from the exact block boundary.
     Configurable via `BaseMachine.fastTapeLoad`, worker protocol message `setFastTapeLoad`, UI toggle
-    (`fast-tape-toggle` with `localStorage` persistence in the screen options bar below the canvas), and MCP server tools (`set_fast_tape_load`,
+    (`fast-tape-toggle` with `localStorage` persistence, living in the tape library panel's options
+    row alongside `tape-sound-toggle`), and MCP server tools (`set_fast_tape_load`,
     `load_tape` with `fastLoad` option).
 
 Tapes load into the cassette player in the **stopped** state (`isPlaying === false`). Playback is started
@@ -181,7 +182,8 @@ into `.sna` bytes:
 Wired up as: a worker protocol `saveSnapshot` message / `EmulatorClient.saveSnapshot()`
 (promise-based — the one request/response pattern in an otherwise fire-and-forget
 protocol, resolved by matching `snapshotData` replies to queued requests in send
-order) / a **Save Snapshot** toolbar button that downloads `spectrum-<model>-<timestamp>.sna`;
+order) / a **Save Snapshot** button (in the right-docked controls panel) that downloads
+`spectrum-<model>-<timestamp>.sna`;
 an MCP `save_snapshot` tool and matching bridge command, mirroring `read_screen`'s
 connected-instance-or-headless pattern; and `writeSna48k`/`writeSna128k` are also
 just directly callable from Node scripts against a headless `Machine48k`/`Machine128k`
@@ -255,6 +257,29 @@ and let users re-load a tape without re-picking the file. Both share one small
 promise-wrapping helper (`packages/app/src/utils/idb.ts`) for opening a database
 and awaiting a request/transaction, rather than each hand-rolling the same
 `IDBOpenDBRequest`/`IDBTransaction` callback boilerplate.
+
+## UI layout (`packages/app/index.html`, `style.css`)
+
+The canvas sits alone in the centered column; everything else lives in two
+`position:fixed` side panels, mutually exclusive (opening one auto-closes the
+other), closed by default, toggled by always-visible edge tabs (`#tape-library-toggle`
+left, `#controls-panel-toggle` right — icon + vertical text label) that shift with
+their panel via `body.library-open`/`body.controls-open` classes:
+
+- **Left — tape library** (`#tape-library-panel`): add/search/filter-by-format,
+  per-item rename/delete, bulk select/export/delete, and — since the library is
+  where tape playback actually happens — the tape transport (`tape-btn`/
+  `tape-eject-btn`), the `tape-sound-toggle`/`fast-tape-toggle` checkboxes, and the
+  general Insert Tape/Snapshot file picker (`snapshot-input`, handles `.tap`/`.tzx`/
+  `.sna`/`.z80`) all live here too, not in the right panel.
+- **Right — controls** (`#controls-panel`): MACHINE (model select, pause/reset/save
+  snapshot), AUDIO (mute, volume), OPTIONS (`normal-keyboard-toggle`), and an
+  MCP BRIDGE group showing `#mcp-indicator`'s live connection state (moved out of
+  the top bar, which now holds only the brand/logo).
+
+Buttons throughout both panels use icon + visible text (`.btn` is `inline-flex` with
+a gap for this), not icon-only-with-tooltip — the tape library's bulk-action bar is
+the one deliberate exception (count text + 3 actions already fill that 280px row).
 
 ## Deployment (Proxmox LXC)
 
