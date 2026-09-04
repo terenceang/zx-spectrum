@@ -401,8 +401,9 @@ async function confirmInstantLoad(): Promise<void> {
   client.stopTape();
   client.reset();
 
-  const data = entry.data.slice(0);
-  client.loadTape(entry.format, data);
+  const tapeData = entry.data.slice(0);
+  const sessionData = entry.data.slice(0);
+  client.loadTape(entry.format, tapeData);
 
   const model = currentModel();
 
@@ -416,14 +417,18 @@ async function confirmInstantLoad(): Promise<void> {
   if (model === "48k") {
     await typeText('load ""\n');
   } else {
-    await typeText("3\n");
+    // 128K boot menu: "Tape Loader" is the default-highlighted item after reset,
+    // so Enter alone selects it. Digit keys are hotkeys straight to the ROM's other
+    // four entries (128 BASIC/Calculator/48 BASIC/Tape Tester), not "select the
+    // Nth displayed row" — "3" actually jumps to 48 BASIC, not Tape Loader.
+    await typeText("\n");
   }
 
   await sleep(100);
   client.playTape();
 
   if (mediaFileText) mediaFileText.textContent = entry.filename;
-  await saveSessionMedia({ filename: entry.filename, format: entry.format, data: data.slice(0) });
+  await saveSessionMedia({ filename: entry.filename, format: entry.format, data: sessionData });
 
   status.textContent = `Loaded "${entry.filename}". Fast loading...`;
   paused = false;
@@ -473,19 +478,22 @@ async function loadMediaFile(file: File): Promise<void> {
 
   if (snapshotExt) {
     const format = SNAPSHOT_EXTENSIONS[snapshotExt as keyof typeof SNAPSHOT_EXTENSIONS];
+    const sessionData = data.slice(0);
     client.loadSnapshot(format, data);
     if (mediaFileText) mediaFileText.textContent = file.name;
-    await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
+    await saveSessionMedia({ filename: file.name, format, data: sessionData });
   } else if (tapeExt) {
     const format = TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS];
+    const sessionData = data.slice(0);
+    const libraryData = data.slice(0);
     client.loadTape(format, data);
     if (mediaFileText) mediaFileText.textContent = file.name;
-    await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
+    await saveSessionMedia({ filename: file.name, format, data: sessionData });
     await addTape({
       name: stripExtension(file.name),
       filename: file.name,
       format,
-      data: data.slice(0),
+      data: libraryData,
     });
     await renderLibrary();
     status.textContent = `Loaded "${file.name}". Tape stopped.`;
