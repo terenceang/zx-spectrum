@@ -425,8 +425,12 @@ async function confirmInstantLoad(): Promise<void> {
   client.playTape();
 
   // 1800ms (90 frames) is what the project's own fast-load test (fastTapeLoad.test.ts)
-  // waits for either ROM to boot to its keyboard-polling ready state before typing.
-  await sleep(1800);
+  // waits for either ROM to boot to its keyboard-polling ready state before typing;
+  // 2500ms adds a safety margin on top — under sustained load the worker's frame
+  // timer can fall behind real time, and a keystroke arriving before the ROM is
+  // actually polling the keyboard gets silently dropped (observed intermittently
+  // at 1800ms during back-to-back scripted loads).
+  await sleep(2500);
   // "j" is the single physical key bound to the LOAD keyword on the K-cursor (BASIC's
   // keyword-entry mode at the start of a line) — typing "load" letter-by-letter would
   // send L (itself a keyword, LET), then O/A/D as literal letters in the L-cursor mode
@@ -817,9 +821,10 @@ async function typeText(text: string): Promise<void> {
       for (const { row, bit } of plainKeys) client.sendKey(row, bit, false);
       // Long enough gap that the ROM's keyboard scan reliably sees a released matrix
       // before the next key lands — two identical taps in a row (e.g. the pair of
-      // quotes in LOAD "") with only 40ms between them have been observed to get
-      // misread as a different symbol, presumably a debounce/repeat quirk.
-      await sleep(120);
+      // quotes in LOAD "") with a too-short gap have been observed to get misread
+      // as a different symbol, presumably a debounce/repeat quirk. Widened from
+      // 120ms after that still intermittently misfired under sustained load.
+      await sleep(180);
       continue;
     }
     const symbol = SYMBOL_CHAR_MAP[ch];
@@ -830,7 +835,7 @@ async function typeText(text: string): Promise<void> {
     await sleep(60);
     client.sendKey(symbol.row, symbol.bit, false);
     client.sendKey(SYMBOL_SHIFT.row, SYMBOL_SHIFT.bit, false);
-    await sleep(120);
+    await sleep(180);
   }
 }
 
