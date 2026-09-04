@@ -17,6 +17,12 @@ import {
 } from "./ui/romStorage.js";
 import { EmulatorClient } from "./worker-client.js";
 import { base64ToArrayBuffer } from "./utils/base64.js";
+import {
+  addTape,
+  removeTape,
+  getAllTapes,
+  type TapeEntry,
+} from "./ui/tapeLibrary.js";
 
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
@@ -34,6 +40,19 @@ const volumeIcon = document.getElementById("volume-icon") as SVGElement | null;
 const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement | null;
 const volumeValue = document.getElementById("volume-value") as HTMLSpanElement | null;
 const status = document.getElementById("status") as HTMLDivElement;
+
+// Tape library elements
+const tapeLibraryPanel = document.getElementById("tape-library-panel") as HTMLDivElement;
+const tapeLibraryToggle = document.getElementById("tape-library-toggle") as HTMLButtonElement;
+const tapeLibraryAddBtn = document.getElementById("tape-library-add-btn") as HTMLButtonElement;
+const tapeLibraryList = document.getElementById("tape-library-list") as HTMLDivElement;
+const tapeLibraryInput = document.getElementById("tape-library-input") as HTMLInputElement;
+
+// Confirm load dialog elements
+const confirmLoadModal = document.getElementById("confirm-load-modal") as HTMLDivElement;
+const confirmLoadName = document.getElementById("confirm-load-name") as HTMLParagraphElement;
+const confirmLoadCancel = document.getElementById("confirm-load-cancel") as HTMLButtonElement;
+const confirmLoadPlay = document.getElementById("confirm-load-play") as HTMLButtonElement;
 
 // Setup modal elements
 const setupModal = document.getElementById("setup-modal") as HTMLDivElement;
@@ -132,6 +151,8 @@ fastTapeToggle?.addEventListener("change", () => {
 let paused = false;
 let romLoaded = false;
 let tapePlaying = false;
+let libraryOpen = localStorage.getItem("zx_spectrum_library_open") === "true";
+let pendingTapeEntry: TapeEntry | null = null;
 
 function currentModel(): MachineModel {
   return modelSelect.value as MachineModel;
@@ -286,6 +307,127 @@ async function restoreSession(): Promise<void> {
   } else {
     showSetupModal();
   }
+  initLibraryState();
+  await renderLibrary();
+}
+
+// Tape Library
+async function renderLibrary(): Promise<void> {
+  const tapes = await getAllTapes();
+  if (tapes.length === 0) {
+    tapeLibraryList.innerHTML = `<div class="tape-library-empty">No tapes yet. Click + to add.</div>`;
+    return;
+  }
+  tapeLibraryList.innerHTML = "";
+  for (const tape of tapes) {
+    const item = document.createElement("div");
+    item.className = "tape-library-item";
+    item.dataset.id = tape.id;
+    item.innerHTML = `
+      <span class="tape-library-item-name" title="${tape.filename}">${tape.name}</span>
+      <span class="tape-library-item-format">${tape.format}</span>
+      <button class="tape-library-item-delete" title="Remove from library" aria-label="Remove ${tape.name}">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    `;
+    item.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(".tape-library-item-delete")) return;
+      onLibraryTapeClick(tape);
+    });
+    item.querySelector(".tape-library-item-delete")!.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await removeTape(tape.id);
+      await renderLibrary();
+    });
+    tapeLibraryList.appendChild(item);
+  }
+}
+
+function toggleLibrary(): void {
+  libraryOpen = !libraryOpen;
+  tapeLibraryPanel.classList.toggle("open", libraryOpen);
+  document.body.classList.toggle("library-open", libraryOpen);
+  localStorage.setItem("zx_spectrum_library_open", libraryOpen.toString());
+}
+
+function initLibraryState(): void {
+  tapeLibraryPanel.classList.toggle("open", libraryOpen);
+  document.body.classList.toggle("library-open", libraryOpen);
+}
+
+function stripExtension(filename: string): string {
+  const dot = filename.lastIndexOf(".");
+  return dot > 0 ? filename.slice(0, dot) : filename;
+}
+
+async function onLibraryFileSelect(files: FileList | null): Promise<void> {
+  if (!files) return;
+  for (const file of Array.from(files)) {
+    const name = file.name.toLowerCase();
+    const ext = Object.keys(TAPE_EXTENSIONS).find((ext) => name.endsWith(ext));
+    if (!ext) continue;
+    const format = TAPE_EXTENSIONS[ext as keyof typeof TAPE_EXTENSIONS];
+    const data = await file.arrayBuffer();
+    await addTape({
+      name: stripExtension(file.name),
+      filename: file.name,
+      format,
+      data: data.slice(0),
+    });
+  }
+  tapeLibraryInput.value = "";
+  await renderLibrary();
+}
+
+function onLibraryTapeClick(entry: TapeEntry): void {
+  if (!romLoaded) {
+    status.textContent = "Load a ROM first.";
+    return;
+  }
+  pendingTapeEntry = entry;
+  confirmLoadName.textContent = entry.filename;
+  confirmLoadModal.style.display = "flex";
+}
+
+async function confirmInstantLoad(): Promise<void> {
+  const entry = pendingTapeEntry;
+  if (!entry) return;
+  confirmLoadModal.style.display = "none";
+  pendingTapeEntry = null;
+
+  client.stopTape();
+  client.reset();
+
+  const data = entry.data.slice(0);
+  client.loadTape(entry.format, data);
+
+  const model = currentModel();
+
+  client.setFastTapeLoad(true);
+  if (fastTapeToggle) fastTapeToggle.checked = true;
+
+  await ensureAudioStarted();
+
+  await sleep(200);
+
+  if (model === "48k") {
+    await typeText('load ""\n');
+  } else {
+    await typeText("3\n");
+  }
+
+  await sleep(100);
+  client.playTape();
+
+  if (mediaFileText) mediaFileText.textContent = entry.filename;
+  await saveSessionMedia({ filename: entry.filename, format: entry.format, data: data.slice(0) });
+
+  status.textContent = `Loaded "${entry.filename}". Fast loading...`;
+  paused = false;
+  updatePauseUi();
 }
 
 async function loadRomFiles(files: File[]): Promise<void> {
@@ -339,6 +481,13 @@ async function loadMediaFile(file: File): Promise<void> {
     client.loadTape(format, data);
     if (mediaFileText) mediaFileText.textContent = file.name;
     await saveSessionMedia({ filename: file.name, format, data: data.slice(0) });
+    await addTape({
+      name: stripExtension(file.name),
+      filename: file.name,
+      format,
+      data: data.slice(0),
+    });
+    await renderLibrary();
     status.textContent = `Loaded "${file.name}". Tape stopped.`;
     paused = false;
     updatePauseUi();
@@ -497,6 +646,22 @@ tapeEjectBtn?.addEventListener("click", async () => {
   snapshotInput.value = "";
   await saveSessionMedia(null);
   status.textContent = "Tape ejected.";
+});
+
+// Tape library event listeners
+tapeLibraryToggle.addEventListener("click", toggleLibrary);
+tapeLibraryAddBtn.addEventListener("click", () => tapeLibraryInput.click());
+tapeLibraryInput.addEventListener("change", () => onLibraryFileSelect(tapeLibraryInput.files));
+confirmLoadCancel.addEventListener("click", () => {
+  confirmLoadModal.style.display = "none";
+  pendingTapeEntry = null;
+});
+confirmLoadPlay.addEventListener("click", () => confirmInstantLoad());
+confirmLoadModal.addEventListener("click", (e) => {
+  if (e.target === confirmLoadModal) {
+    confirmLoadModal.style.display = "none";
+    pendingTapeEntry = null;
+  }
 });
 
 // Ensure audio starts on the first user gesture (pointerdown or keydown)

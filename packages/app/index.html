@@ -35,8 +35,42 @@
       </div>
     </header>
 
+    <!-- Tape Library Panel -->
+    <aside id="tape-library-panel" class="tape-library-panel" aria-label="Tape Library">
+      <div class="tape-library-header">
+        <span class="tape-library-title">Tape Library</span>
+        <button id="tape-library-add-btn" class="btn btn-icon" type="button" title="Add tape to library" aria-label="Add tape">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
+      </div>
+      <div id="tape-library-list" class="tape-library-list">
+        <div class="tape-library-empty">No tapes yet. Click + to add.</div>
+      </div>
+      <input id="tape-library-input" type="file" accept=".tap,.tzx" multiple hidden />
+    </aside>
+
+    <!-- Instant Load Confirmation Dialog -->
+    <div id="confirm-load-modal" class="modal-overlay" style="display: none;">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 class="modal-title">Load Tape</h2>
+          <p class="modal-subtitle" id="confirm-load-name"></p>
+        </div>
+        <div class="modal-body">
+          <p class="confirm-load-text">This will reset the emulator and start loading immediately.</p>
+        </div>
+        <div class="modal-footer">
+          <button id="confirm-load-cancel" class="btn" type="button">Cancel</button>
+          <button id="confirm-load-play" class="btn btn-accent" type="button">Play</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Main Container -->
-    <main class="app-container">
+    <main class="app-container" id="app-container">
       <!-- Title Header -->
       <section class="app-header">
         <div class="hero-glow" aria-hidden="true"></div>
@@ -101,6 +135,12 @@
             <div class="toolbar-divider" aria-hidden="true"></div>
 
             <div class="control-group-section tape-section">
+              <button id="tape-library-toggle" class="btn btn-icon" type="button" title="Toggle tape library" aria-label="Toggle tape library">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+              </button>
               <span class="section-label">TAPE:</span>
               <button id="tape-btn" class="btn btn-icon btn-accent" type="button" title="Play tape" aria-label="Play/Stop tape">
                 <svg class="icon-tape-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
