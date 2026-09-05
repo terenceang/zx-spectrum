@@ -759,6 +759,8 @@ async function quickLoadCurrentSlot(): Promise<void> {
 }
 
 async function deleteCurrentSlot(): Promise<void> {
+  const ok = window.confirm(`Delete save state in slot ${activeSaveStateSlot}?`);
+  if (!ok) return;
   const model = currentModel();
   await deleteStateFromStorage(activeSaveStateSlot, model);
   await updateSaveStatePreview(activeSaveStateSlot);
@@ -893,6 +895,8 @@ async function renderLibrary(): Promise<void> {
     });
     item.querySelector(".tape-library-item-delete")!.addEventListener("click", async (e) => {
       e.stopPropagation();
+      const ok = window.confirm(`Remove "${tape.name}" from the library?`);
+      if (!ok) return;
       await removeTape(tape.id);
       selectedTapeIds.delete(tape.id);
       await renderLibrary();
