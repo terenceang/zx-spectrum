@@ -20,7 +20,7 @@ Everything else lives in two collapsible side panels opened via the edge tabs:
 - **Left panel** — contains two tabs:
   - **Tapes**: Tape library (IndexedDB-backed) with search, format filters, rename, and bulk export/delete, plus tape transport (play/stop, eject), loading-tone and fast-load toggles, and tape file picker. Clicking a saved tape drives a full `LOAD ""` end to end and loads in under a second via ROM fast-load traps.
   - **Snapshots**: 5-slot memory manager with instant thumbnail screenshot preview, timestamp display, slot state deletion, direct `.z80`/`.sna` loading into any slot, and slot export to `.z80` or `.sna` with on-the-fly format translation.
-- **Right panel** — holds machine controls (model selector: 48K / 128K / +3), floppy disk drive A: controls (track indicator, activity LED, insert/eject `.dsk` images when in +3 mode), audio options (mute, volume, and AY stereo mode: ACB authentic +3, ABC Melodik, or Mono for 128K/+3; 48K beeper is pure mono), keyboard options, MCP bridge status, live diagnostics (FPS), and activity log with a Save Log export button.
+- **Right panel** — holds machine controls (model selector: 48K / 128K / +3, ROM file loader & setup dialog), floppy disk drive A: controls (track indicator, activity LED, insert/eject `.dsk` images when in +3 mode), audio options (mute, volume, and AY stereo mode: ACB authentic +3, ABC Melodik, or Mono for 128K/+3; 48K beeper is pure mono), keyboard options, MCP bridge status, live diagnostics (FPS), and activity log with a Save Log export button.
 
 ### ROMs
 

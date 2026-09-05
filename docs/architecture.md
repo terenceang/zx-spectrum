@@ -323,7 +323,7 @@ that shift with their panel via `body.library-open`/`body.controls-open` classes
     direct external file load into slot, and slot export (.z80 / .sna) with dynamic worker conversion.
     Also displays active hardware memory configuration (model, RAM size, paging mode).
 - **Right panel — controls** (`#controls-panel`):
-  - **MACHINE**: Model selector (48K / 128K / +3).
+  - **MACHINE**: Model selector (48K / 128K / +3), direct ROM file loader (`#rom-input`), and ROM setup dialog launcher (`#rom-setup-btn`).
   - **FLOPPY DISK (+3)**: Active drive A: indicator, track stepper position, activity LED,
     insert/eject `.dsk` floppy images.
   - **AUDIO**: Mute, volume slider, AY stereo mode selector (ACB authentic +3 / ABC Melodik / Mono, shown for 128K/+3; the 48K beeper is pure mono).

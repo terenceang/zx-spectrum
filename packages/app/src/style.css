@@ -1492,7 +1492,7 @@ canvas#screen {
   justify-content: center;
 }
 
-.controls-panel-group .control-file-btn.slot-file-btn {
+.controls-panel-group .control-file-btn {
   width: 100%;
   max-width: 100%;
   height: 32px;
@@ -1504,7 +1504,7 @@ canvas#screen {
   color: var(--text-secondary);
 }
 
-.controls-panel-group .control-file-btn.slot-file-btn:hover {
+.controls-panel-group .control-file-btn:hover {
   color: var(--text);
   border-color: var(--border-hover);
   background: var(--surface-3);

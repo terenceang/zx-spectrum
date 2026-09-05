@@ -221,6 +221,7 @@ See "UI layout" in `docs/architecture.md`.
   - Relocated Pause, Reset, Save (F5), and Load (F8) into a dedicated `.screen-toolbar` directly above the CRT screen frame.
   - Added live Diagnostics section in the controls panel with rolling 500ms FPS readout backed by the frame ring buffer sequence counter.
   - Added Activity Log section with scrollable event viewer and Save Log button in the Controls panel.
+  - Added direct ROM file loader and ROM setup modal launcher to the Machine controls group.
   - Added slot state deletion button to the Snapshots manager.
 
 ## Outstanding

@@ -37,6 +37,10 @@ import {
 
 const canvas = document.getElementById("screen") as HTMLCanvasElement;
 const modelSelect = document.getElementById("model-select") as HTMLSelectElement;
+const romFileBtn = document.getElementById("rom-file-btn") as HTMLLabelElement | null;
+const romInput = document.getElementById("rom-input") as HTMLInputElement | null;
+const romFileText = document.getElementById("rom-file-text") as HTMLSpanElement | null;
+const romSetupBtn = document.getElementById("rom-setup-btn") as HTMLButtonElement | null;
 const normalKeyboardToggle = document.getElementById("normal-keyboard-toggle") as HTMLInputElement;
 const tapeSoundToggle = document.getElementById("tape-sound-toggle") as HTMLInputElement | null;
 const fastTapeToggle = document.getElementById("fast-tape-toggle") as HTMLInputElement | null;
@@ -130,6 +134,7 @@ const modalModelSelect = document.getElementById("modal-model-select") as HTMLSe
 const modalRomInput = document.getElementById("modal-rom-input") as HTMLInputElement;
 const modalRomText = document.getElementById("modal-rom-text") as HTMLSpanElement;
 const modalStartBtn = document.getElementById("modal-start-btn") as HTMLButtonElement;
+const modalCancelBtn = document.getElementById("modal-cancel-btn") as HTMLButtonElement | null;
 const modalError = document.getElementById("modal-error") as HTMLDivElement;
 
 let modalRomData: ArrayBuffer | null = null;
@@ -442,12 +447,30 @@ function showSetupModal(): void {
   modalRomText.textContent = "Choose ROM file(s)…";
   modalStartBtn.disabled = true;
   modalError.style.display = "none";
+  if (modalCancelBtn) modalCancelBtn.style.display = romLoaded ? "" : "none";
   const model = currentModel();
   modalModelSelect.value = model;
 }
 
 function hideSetupModal(): void {
   setupModal.style.display = "none";
+}
+
+function updateRomUi(filename?: string): void {
+  if (!romFileText) return;
+  if (filename) {
+    romFileText.textContent = filename;
+    romFileBtn?.setAttribute("title", `Loaded ROM: ${filename} (click to change)`);
+  } else {
+    const stored = loadRomFromStorage(currentModel());
+    if (stored) {
+      romFileText.textContent = stored.filename;
+      romFileBtn?.setAttribute("title", `Loaded ROM: ${stored.filename} (click to change)`);
+    } else {
+      romFileText.textContent = "Load ROM…";
+      romFileBtn?.setAttribute("title", "Load custom ROM (.rom, .bin)");
+    }
+  }
 }
 
 function updateModalStartBtn(): void {
@@ -714,6 +737,7 @@ async function restoreSession(): Promise<void> {
   updateFloppyUiVisibility();
   updateAudioModeUiVisibility();
   updateMemoryInfoUi();
+  updateRomUi();
   await updateSaveStatePreview(activeSaveStateSlot);
   const model = currentModel();
   const storedRom = loadRomFromStorage(model);
@@ -1013,6 +1037,7 @@ async function loadRomFiles(files: File[]): Promise<void> {
   romLoaded = true;
   paused = false;
   updatePauseUi();
+  updateRomUi(filename);
   setStatus(`${model.toUpperCase()} ROM loaded and reset. Load a snapshot or tape to play.`);
   await ensureAudioStarted();
 }
@@ -1105,6 +1130,7 @@ async function switchModel(newModel: MachineModel): Promise<void> {
   updateFloppyUiVisibility();
   updateAudioModeUiVisibility();
   updateMemoryInfoUi();
+  updateRomUi();
   await updateSaveStatePreview(activeSaveStateSlot);
   const storedRom = loadRomFromStorage(newModel);
   if (storedRom) {
@@ -1205,6 +1231,7 @@ modalStartBtn.addEventListener("click", async () => {
   updateFloppyUiVisibility();
   updateAudioModeUiVisibility();
   updateMemoryInfoUi();
+  updateRomUi(modalRomFilename);
   await updateSaveStatePreview(activeSaveStateSlot);
   saveRomToStorage({ model, filename: modalRomFilename, data: modalRomData.slice(0) });
 
@@ -1218,6 +1245,22 @@ modalStartBtn.addEventListener("click", async () => {
 
   hideSetupModal();
   await ensureAudioStarted();
+});
+
+modalCancelBtn?.addEventListener("click", () => {
+  hideSetupModal();
+});
+
+romInput?.addEventListener("change", async () => {
+  const files = romInput.files ? Array.from(romInput.files) : [];
+  if (files.length > 0) {
+    await loadRomFiles(files);
+    romInput.value = "";
+  }
+});
+
+romSetupBtn?.addEventListener("click", () => {
+  showSetupModal();
 });
 
 pauseBtn.addEventListener("click", () => {
