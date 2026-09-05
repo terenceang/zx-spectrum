@@ -21,31 +21,38 @@ export class FrameRingWriter {
   }
 }
 
-/** Main-thread reader for the shared frame buffer. Returns null only before the
- * first frame has ever been written. */
 export class FrameRingReader {
   private readonly header: Int32Array;
   private readonly pixels: Uint8Array;
+  private lastSeq = 0;
 
   constructor(buffer: SharedArrayBuffer, maxWidth: number, maxHeight: number) {
     this.header = new Int32Array(buffer, 0, FRAME_HEADER_INT32_LENGTH);
     this.pixels = new Uint8Array(buffer, FRAME_HEADER_INT32_LENGTH * 4, maxWidth * maxHeight);
   }
 
-  read(): { pixels: Uint8Array; width: number; height: number } | null {
+  getSequence(): number {
+    return Atomics.load(this.header, 0);
+  }
+
+  read(force = false): { pixels: Uint8Array; width: number; height: number } | null {
     for (let attempt = 0; attempt < 8; attempt++) {
       const seqBefore = Atomics.load(this.header, 0);
-      if (seqBefore === 0) return null; // never written
-      if (seqBefore % 2 !== 0) continue; // mid-write, retry
+      if (seqBefore === 0) return null;
+      if (!force && seqBefore === this.lastSeq) return null;
+      if (seqBefore % 2 !== 0) continue;
       const w = Atomics.load(this.header, 1);
       const h = Atomics.load(this.header, 2);
       const pixelCount = w * h;
-      if (pixelCount > this.pixels.length) continue; // corrupt header, retry
+      if (pixelCount > this.pixels.length) continue;
       const out = this.pixels.slice(0, pixelCount);
       const seqAfter = Atomics.load(this.header, 0);
-      if (seqAfter === seqBefore) return { pixels: out, width: w, height: h };
+      if (seqAfter === seqBefore) {
+        this.lastSeq = seqAfter;
+        return { pixels: out, width: w, height: h };
+      }
     }
-    return null; // gave up after a handful of torn reads — next rAF tick tries again
+    return null;
   }
 }
 

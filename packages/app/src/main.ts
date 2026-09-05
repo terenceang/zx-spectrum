@@ -45,7 +45,9 @@ const mediaFileText = document.getElementById("media-file-text") as HTMLSpanElem
 const pauseBtn = document.getElementById("pause-btn") as HTMLButtonElement;
 const resetBtn = document.getElementById("reset-btn") as HTMLButtonElement;
 const saveSnapshotBtn = document.getElementById("save-snapshot-btn") as HTMLButtonElement;
-const snapshotFormatSelect = document.getElementById("snapshot-format-select") as HTMLSelectElement | null;
+const snapshotFormatSelect = document.getElementById(
+  "snapshot-format-select",
+) as HTMLSelectElement | null;
 const tapeBtn = document.getElementById("tape-btn") as HTMLButtonElement;
 const tapeEjectBtn = document.getElementById("tape-eject-btn") as HTMLButtonElement | null;
 const muteBtn = document.getElementById("mute-btn") as HTMLButtonElement | null;
@@ -53,6 +55,7 @@ const volumeIcon = document.getElementById("volume-icon") as SVGElement | null;
 const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement | null;
 const volumeValue = document.getElementById("volume-value") as HTMLSpanElement | null;
 const audioModeSelect = document.getElementById("audio-mode-select") as HTMLSelectElement | null;
+const ayStereoGroup = document.getElementById("ay-stereo-group") as HTMLDivElement | null;
 const status = document.getElementById("status") as HTMLDivElement;
 
 // Floppy drive elements
@@ -75,8 +78,12 @@ const deleteStateBtn = document.getElementById("delete-state-btn") as HTMLButton
 const panelTapesTab = document.getElementById("panel-tapes-tab") as HTMLDivElement | null;
 const panelSnapshotsTab = document.getElementById("panel-snapshots-tab") as HTMLDivElement | null;
 const leftTabTapesBtn = document.getElementById("left-tab-tapes-btn") as HTMLButtonElement | null;
-const leftTabSnapshotsBtn = document.getElementById("left-tab-snapshots-btn") as HTMLButtonElement | null;
-const snapshotsPanelToggle = document.getElementById("snapshots-panel-toggle") as HTMLButtonElement | null;
+const leftTabSnapshotsBtn = document.getElementById(
+  "left-tab-snapshots-btn",
+) as HTMLButtonElement | null;
+const snapshotsPanelToggle = document.getElementById(
+  "snapshots-panel-toggle",
+) as HTMLButtonElement | null;
 const snapshotFileInput = document.getElementById("snapshot-file-input") as HTMLInputElement | null;
 const snapshotFileText = document.getElementById("snapshot-file-text") as HTMLSpanElement | null;
 
@@ -87,16 +94,25 @@ const tapeLibraryAddBtn = document.getElementById("tape-library-add-btn") as HTM
 const tapeLibraryList = document.getElementById("tape-library-list") as HTMLDivElement;
 const tapeLibraryInput = document.getElementById("tape-library-input") as HTMLInputElement;
 const tapeLibrarySearch = document.getElementById("tape-library-search") as HTMLInputElement;
-const tapeLibraryFormatFilter = document.getElementById("tape-library-format-filter") as HTMLSelectElement;
+const tapeLibraryFormatFilter = document.getElementById(
+  "tape-library-format-filter",
+) as HTMLSelectElement;
 const tapeLibraryBulkBar = document.getElementById("tape-library-bulk-bar") as HTMLDivElement;
 const tapeLibraryBulkCount = document.getElementById("tape-library-bulk-count") as HTMLSpanElement;
-const tapeLibraryBulkExportBtn = document.getElementById("tape-library-bulk-export") as HTMLButtonElement;
-const tapeLibraryBulkDeleteBtn = document.getElementById("tape-library-bulk-delete") as HTMLButtonElement;
-const tapeLibraryBulkClearBtn = document.getElementById("tape-library-bulk-clear") as HTMLButtonElement;
+const tapeLibraryBulkExportBtn = document.getElementById(
+  "tape-library-bulk-export",
+) as HTMLButtonElement;
+const tapeLibraryBulkDeleteBtn = document.getElementById(
+  "tape-library-bulk-delete",
+) as HTMLButtonElement;
+const tapeLibraryBulkClearBtn = document.getElementById(
+  "tape-library-bulk-clear",
+) as HTMLButtonElement;
 
 // Controls panel elements
 const controlsPanel = document.getElementById("controls-panel") as HTMLDivElement;
 const controlsPanelToggle = document.getElementById("controls-panel-toggle") as HTMLButtonElement;
+const fpsVal = document.getElementById("fps-val") as HTMLSpanElement | null;
 
 // Confirm load dialog elements
 const confirmLoadModal = document.getElementById("confirm-load-modal") as HTMLDivElement;
@@ -202,7 +218,8 @@ fastTapeToggle?.addEventListener("change", () => {
   client.setFastTapeLoad(enabled);
 });
 
-const savedAudioMode = (localStorage.getItem("zx_spectrum_audio_mode") as "mono" | "acb" | "abc" | null) ?? "acb";
+const savedAudioMode =
+  (localStorage.getItem("zx_spectrum_audio_mode") as "mono" | "acb" | "abc" | null) ?? "acb";
 if (audioModeSelect) audioModeSelect.value = savedAudioMode;
 client.setAudioMode(savedAudioMode);
 
@@ -265,6 +282,23 @@ client.onError = (message) => {
   status.textContent = `Error: ${message}`;
 };
 
+let lastFpsUpdate = performance.now();
+let lastFpsFrameCount = 0;
+let currentFps = 0;
+
+function updateFpsUi(): void {
+  if (!fpsVal) return;
+  if (!romLoaded) {
+    fpsVal.textContent = "--";
+    return;
+  }
+  if (paused) {
+    fpsVal.textContent = "Paused";
+    return;
+  }
+  fpsVal.textContent = currentFps.toFixed(1);
+}
+
 function updatePauseUi(): void {
   const pauseIcon = pauseBtn.querySelector(".icon-pause") as SVGElement | null;
   const playIcon = pauseBtn.querySelector(".icon-play") as SVGElement | null;
@@ -275,13 +309,16 @@ function updatePauseUi(): void {
     if (label) label.textContent = "Resume";
     pauseBtn.setAttribute("title", "Resume emulation");
     pauseBtn.setAttribute("aria-label", "Resume emulation");
+    pauseBtn.classList.add("btn-accent");
   } else {
     if (pauseIcon) pauseIcon.style.display = "block";
     if (playIcon) playIcon.style.display = "none";
     if (label) label.textContent = "Pause";
     pauseBtn.setAttribute("title", "Pause emulation");
     pauseBtn.setAttribute("aria-label", "Pause emulation");
+    pauseBtn.classList.remove("btn-accent");
   }
+  updateFpsUi();
 }
 
 function updateTapeUi(): void {
@@ -422,6 +459,12 @@ function updateFloppyUiVisibility(): void {
   }
 }
 
+function updateAudioModeUiVisibility(): void {
+  if (ayStereoGroup) {
+    ayStereoGroup.style.display = currentModel() === "48k" ? "none" : "";
+  }
+}
+
 client.onDiskStatus = (diskStatus) => {
   if (floppyLed) {
     floppyLed.classList.toggle("active", diskStatus.motorOn);
@@ -488,10 +531,18 @@ async function updateSaveStatePreview(slot: number): Promise<void> {
     if (stateTimestamp) {
       const date = new Date(entry.timestamp);
       const timeStr = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      const label = entry.name ? `${entry.name} (${timeStr})` : `${date.toLocaleDateString()} ${timeStr}`;
+      const label = entry.name
+        ? `${entry.name} (${timeStr})`
+        : `${date.toLocaleDateString()} ${timeStr}`;
       stateTimestamp.textContent = `Slot ${slot}: ${label}`;
     }
-    if (quickLoadBtn) quickLoadBtn.disabled = false;
+    if (quickLoadBtn) {
+      quickLoadBtn.disabled = false;
+      quickLoadBtn.title = `Load state from slot ${slot} (F8)`;
+    }
+    if (quickSaveBtn) {
+      quickSaveBtn.title = `Save state into slot ${slot} (F5)`;
+    }
     if (deleteStateBtn) deleteStateBtn.disabled = false;
     if (saveSnapshotBtn) saveSnapshotBtn.disabled = false;
     if (snapshotFormatSelect) {
@@ -511,7 +562,13 @@ async function updateSaveStatePreview(slot: number): Promise<void> {
     if (stateTimestamp) {
       stateTimestamp.textContent = `Slot ${slot}: Empty slot`;
     }
-    if (quickLoadBtn) quickLoadBtn.disabled = true;
+    if (quickLoadBtn) {
+      quickLoadBtn.disabled = true;
+      quickLoadBtn.title = `Slot ${slot} is empty (F8)`;
+    }
+    if (quickSaveBtn) {
+      quickSaveBtn.title = `Save state into slot ${slot} (F5)`;
+    }
     if (deleteStateBtn) deleteStateBtn.disabled = true;
     if (saveSnapshotBtn) saveSnapshotBtn.disabled = true;
     if (snapshotFormatSelect) snapshotFormatSelect.disabled = true;
@@ -574,6 +631,7 @@ async function restoreSession(): Promise<void> {
     modelSelect.value = lastModel;
   }
   updateFloppyUiVisibility();
+  updateAudioModeUiVisibility();
   updateMemoryInfoUi();
   await updateSaveStatePreview(activeSaveStateSlot);
   const model = currentModel();
@@ -608,6 +666,7 @@ async function restoreSession(): Promise<void> {
   initLibraryState();
   initControlsState();
   await renderLibrary();
+  updateFpsUi();
 }
 
 // Tape Library
@@ -663,7 +722,12 @@ async function renderLibrary(): Promise<void> {
     });
     item.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
-      if (target.closest(".tape-library-item-delete, .tape-library-item-edit, .tape-library-item-checkbox")) return;
+      if (
+        target.closest(
+          ".tape-library-item-delete, .tape-library-item-edit, .tape-library-item-checkbox",
+        )
+      )
+        return;
       onLibraryTapeClick(tape);
     });
     item.querySelector(".tape-library-item-edit")!.addEventListener("click", (e) => {
@@ -953,6 +1017,7 @@ async function switchModel(newModel: MachineModel): Promise<void> {
   previousModel = newModel;
   localStorage.setItem("zx_spectrum_last_model", newModel);
   updateFloppyUiVisibility();
+  updateAudioModeUiVisibility();
   updateMemoryInfoUi();
   await updateSaveStatePreview(activeSaveStateSlot);
   const storedRom = loadRomFromStorage(newModel);
@@ -1052,6 +1117,7 @@ modalStartBtn.addEventListener("click", async () => {
   previousModel = model;
   localStorage.setItem("zx_spectrum_last_model", model);
   updateFloppyUiVisibility();
+  updateAudioModeUiVisibility();
   updateMemoryInfoUi();
   await updateSaveStatePreview(activeSaveStateSlot);
   saveRomToStorage({ model, filename: modalRomFilename, data: modalRomData.slice(0) });
@@ -1077,6 +1143,8 @@ pauseBtn.addEventListener("click", () => {
   } else {
     client.resume();
     audio.resume();
+    lastFpsUpdate = performance.now();
+    lastFpsFrameCount = client.getFrameCount();
     rafHandle = requestAnimationFrame(frameLoop);
   }
   updatePauseUi();
@@ -1084,6 +1152,9 @@ pauseBtn.addEventListener("click", () => {
 
 resetBtn.addEventListener("click", () => {
   client.reset();
+  lastFpsUpdate = performance.now();
+  lastFpsFrameCount = client.getFrameCount();
+  updateFpsUi();
   status.textContent = "System reset.";
 });
 
@@ -1285,6 +1356,20 @@ function frameLoop(): void {
   const frame = client.pollFrame();
   if (frame) display.render(frame);
   audio.pumpFallbackAudio(client);
+
+  const now = performance.now();
+  const elapsed = now - lastFpsUpdate;
+  if (elapsed >= 500) {
+    const frames = client.getFrameCount();
+    const frameDelta = frames - lastFpsFrameCount;
+    if (elapsed <= 2000 && frameDelta >= 0) {
+      currentFps = (frameDelta * 1000) / elapsed;
+    }
+    lastFpsUpdate = now;
+    lastFpsFrameCount = frames;
+    updateFpsUi();
+  }
+
   if (!paused) rafHandle = requestAnimationFrame(frameLoop);
 }
 
@@ -1427,20 +1512,22 @@ function connectMcpBridge(): void {
   let mcpCommandTail: Promise<void> = Promise.resolve();
   ws.onmessage = (event) => {
     const message = JSON.parse(event.data as string) as McpBridgeCommand;
-    mcpCommandTail = mcpCommandTail.then(() => handleMcpCommand(message)).then(
-      (result) => {
-        ws.send(JSON.stringify({ reqId: message.reqId, ok: true, result }));
-      },
-      (err) => {
-        ws.send(
-          JSON.stringify({
-            reqId: message.reqId,
-            ok: false,
-            error: err instanceof Error ? err.message : String(err),
-          }),
-        );
-      },
-    );
+    mcpCommandTail = mcpCommandTail
+      .then(() => handleMcpCommand(message))
+      .then(
+        (result) => {
+          ws.send(JSON.stringify({ reqId: message.reqId, ok: true, result }));
+        },
+        (err) => {
+          ws.send(
+            JSON.stringify({
+              reqId: message.reqId,
+              ok: false,
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        },
+      );
   };
 }
 

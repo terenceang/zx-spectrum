@@ -75,6 +75,12 @@ Audio filtering relies on `DcBlocker` (`packages/core/src/audio/dcBlocker.ts`), 
 IIR high-pass filter (`y[n] = x[n] - x[n-1] + 0.995 * y[n-1]`) shared between the ULA `Beeper`
 and `TapeEdgePlayer`. This removes the DC bias inherent in square-wave pulse audio before mixing.
 
+`Beeper` (`packages/core/src/audio/beeper.ts`) models the ZX Spectrum 48K ear/mic beeper port (0xFE).
+It uses continuous-time boxcar integration anti-aliasing across each audio sample interval rather
+than point-sampling, suppressing square-wave aliasing noise and preserving narrow pulses without
+phase quantization jitter. Beeper audio is strictly mono and mixed identically to left and right
+channels for dual-mono playback.
+
 `AyChip` (AY-3-8912) models three independent sound channels (`A`, `B`, `C`), a noise generator
 (17-bit LFSR), and a hardware envelope generator. It supports stereo panning modes:
 - **ACB** (authentic +3 default): Channel A panned left, Channel C panned center, Channel B panned right.
@@ -82,6 +88,8 @@ and `TapeEdgePlayer`. This removes the DC bias inherent in square-wave pulse aud
 - **Mono**: Channels A, B, and C mixed equally across left and right.
 
 The ULA beeper and tape monitor tones are mixed into both left and right channels equally.
+Stereo panning controls in the UI apply exclusively to the AY sound chip and are dynamically hidden
+when running in 48K mode.
 
 ## Web Worker transport
 
@@ -292,7 +300,7 @@ emulator state across reloads. Both share one small promise-wrapping helper
 
 ## UI layout (`packages/app/index.html`, `style.css`)
 
-The canvas sits alone in the centered column; everything else lives in two
+The canvas sits in the centered column with a top toolbar (`.screen-toolbar`) holding quick Pause, Reset, Save (F5), and Load (F8) controls right above the CRT screen frame. Everything else lives in two
 `position:fixed` side panels, mutually exclusive (opening one auto-closes the
 other), closed by default, toggled by always-visible edge tabs (`#tape-library-toggle` and
 `#snapshots-panel-toggle` on the left, `#controls-panel-toggle` on the right — icon + vertical text label)
@@ -303,16 +311,17 @@ that shift with their panel via `body.library-open`/`body.controls-open` classes
     bulk select/export/delete, tape transport (`tape-btn`/`tape-eject-btn`),
     `tape-sound-toggle`/`fast-tape-toggle` options, and tape file picker.
   - **Snapshots tab** (`#panel-snapshots-tab`): Consolidated 5-slot memory manager (`#save-state-slots`),
-    live thumbnail screenshot preview and timestamp display, Save (F5), Load (F8), Delete,
+    live thumbnail screenshot preview and timestamp display, slot state deletion,
     direct external file load into slot, and slot export (.z80 / .sna) with dynamic worker conversion.
     Also displays active hardware memory configuration (model, RAM size, paging mode).
 - **Right panel — controls** (`#controls-panel`):
-  - **MACHINE**: Model selector (48K / 128K / +3), pause/reset.
+  - **MACHINE**: Model selector (48K / 128K / +3).
   - **FLOPPY DISK (+3)**: Active drive A: indicator, track stepper position, activity LED,
     insert/eject `.dsk` floppy images.
-  - **AUDIO**: Mute, volume slider, stereo mode selector (ACB authentic +3 / ABC Melodik / Mono).
+  - **AUDIO**: Mute, volume slider, AY stereo mode selector (ACB authentic +3 / ABC Melodik / Mono, shown for 128K/+3; the 48K beeper is pure mono).
   - **OPTIONS**: Normal keyboard toggle.
   - **MCP BRIDGE**: Live server bridge connection indicator (`#mcp-indicator`).
+  - **DIAGNOSTICS**: Live emulation performance telemetry and FPS display (`#fps-val`).
 
 Buttons throughout both panels use icon + visible text (`.btn` is `inline-flex` with
 a gap for this), not icon-only-with-tooltip — the tape library's bulk-action bar is

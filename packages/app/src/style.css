@@ -2,7 +2,7 @@
    ZX Spectrum Emulator — Phosphor Theme (terenceang.com design style)
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
 
 :root {
   --bg: #1a1714;
@@ -36,8 +36,8 @@
   --spec-green: #48a853;
   --spec-blue: #3d88c8;
 
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -139,10 +139,18 @@ body {
   flex: 1;
 }
 
-.spectrum-ribbon .c-red { background: var(--spec-red); }
-.spectrum-ribbon .c-yellow { background: var(--spec-yellow); }
-.spectrum-ribbon .c-green { background: var(--spec-green); }
-.spectrum-ribbon .c-blue { background: var(--spec-blue); }
+.spectrum-ribbon .c-red {
+  background: var(--spec-red);
+}
+.spectrum-ribbon .c-yellow {
+  background: var(--spec-yellow);
+}
+.spectrum-ribbon .c-green {
+  background: var(--spec-green);
+}
+.spectrum-ribbon .c-blue {
+  background: var(--spec-blue);
+}
 
 #mcp-indicator {
   display: inline-flex;
@@ -192,7 +200,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  transition: padding-left 0.25s ease, padding-right 0.25s ease;
+  transition:
+    padding-left 0.25s ease,
+    padding-right 0.25s ease;
 }
 
 body.library-open .app-container {
@@ -219,7 +229,11 @@ body.controls-open .app-container {
   transform: translateX(-50%);
   width: 100%;
   height: 100px;
-  background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(212, 137, 42, 0.08) 0%, transparent 70%);
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 0%,
+    rgba(212, 137, 42, 0.08) 0%,
+    transparent 70%
+  );
   pointer-events: none;
 }
 
@@ -239,8 +253,14 @@ body.controls-open .app-container {
 }
 
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .app-subtitle {
@@ -526,6 +546,14 @@ body.controls-open .app-container {
   width: 100%;
 }
 
+.controls-panel-group .control-group {
+  width: 100%;
+}
+
+.controls-panel-group .control-select {
+  width: 100%;
+}
+
 .controls-panel-group .btn {
   width: 100%;
   justify-content: flex-start;
@@ -582,7 +610,8 @@ body.controls-open .app-container {
   min-height: 0;
 }
 
-.memory-info-card {
+.memory-info-card,
+.diagnostic-info-card {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -594,7 +623,8 @@ body.controls-open .app-container {
   box-sizing: border-box;
 }
 
-.memory-info-row {
+.memory-info-row,
+.diagnostic-info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -623,7 +653,12 @@ body.controls-open .app-container {
   gap: 0.5rem;
   padding: 0.75rem 0.4rem;
   border-radius: 0;
-  transition: left 0.25s ease, right 0.25s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition:
+    left 0.25s ease,
+    right 0.25s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .panel-tab.active {
@@ -727,6 +762,22 @@ body.controls-open .panel-tab-right {
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+}
+
+.screen-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.screen-toolbar .btn {
+  height: 32px;
+  padding: 0 0.75rem;
+  font-size: 0.72rem;
+  box-sizing: border-box;
 }
 
 .section-label {
@@ -868,8 +919,13 @@ body.controls-open .panel-tab-right {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.75; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.75;
+  }
 }
 
 .volume-slider {
@@ -897,7 +953,9 @@ body.controls-open .panel-tab-right {
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
-  transition: transform 0.1s ease, background-color 0.15s ease;
+  transition:
+    transform 0.1s ease,
+    background-color 0.15s ease;
 }
 
 .volume-slider::-webkit-slider-thumb:hover {
@@ -912,7 +970,9 @@ body.controls-open .panel-tab-right {
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
-  transition: transform 0.1s ease, background-color 0.15s ease;
+  transition:
+    transform 0.1s ease,
+    background-color 0.15s ease;
 }
 
 .volume-slider::-moz-range-thumb:hover {
@@ -1009,7 +1069,9 @@ body.controls-open .panel-tab-right {
   border: 2px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    inset 0 0 20px rgba(0, 0, 0, 0.6);
   aspect-ratio: 320 / 296;
   display: flex;
   align-items: center;
@@ -1409,3 +1471,10 @@ canvas#screen {
   box-sizing: border-box;
 }
 
+.controls-panel-group .slot-delete-btn {
+  width: 100%;
+  height: 32px;
+  justify-content: center;
+  font-size: 0.72rem;
+  box-sizing: border-box;
+}

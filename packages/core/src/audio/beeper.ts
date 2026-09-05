@@ -36,15 +36,30 @@ export class Beeper {
     const out = new Float32Array(sampleCount);
     const tStatesPerSample = tStatesInFrame / sampleCount;
     let edgeIndex = 0;
-    let level = this.levelAtFrameStart;
+    let level: number = this.levelAtFrameStart;
+    let currentT = 0;
 
     for (let i = 0; i < sampleCount; i++) {
       const sampleEndT = (i + 1) * tStatesPerSample;
+      let accum = 0;
+
       while (edgeIndex < this.edges.length && this.edges[edgeIndex]!.tState < sampleEndT) {
+        const edgeT = this.edges[edgeIndex]!.tState;
+        if (edgeT > currentT) {
+          accum += level * (edgeT - currentT);
+          currentT = edgeT;
+        }
         level = this.edges[edgeIndex]!.level;
         edgeIndex++;
       }
-      out[i] = this.dcBlocker.process(level ? 1 : 0);
+
+      if (sampleEndT > currentT) {
+        accum += level * (sampleEndT - currentT);
+        currentT = sampleEndT;
+      }
+
+      const sampleVal = accum / tStatesPerSample;
+      out[i] = this.dcBlocker.process(sampleVal);
     }
 
     this.edges = [];

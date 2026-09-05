@@ -61,9 +61,15 @@ export class AudioSink {
     const samples = client.takeFallbackAudio();
     if (!samples || samples.length === 0) return;
 
+    const pairs = Math.floor(samples.length / 2);
     const now = this.audioContext.currentTime;
-    const buffer = this.acquireFallbackBuffer(samples.length, now);
-    buffer.getChannelData(0).set(samples);
+    const buffer = this.acquireFallbackBuffer(pairs, now);
+    const left = buffer.getChannelData(0);
+    const right = buffer.getChannelData(1);
+    for (let i = 0; i < pairs; i++) {
+      left[i] = samples[i * 2]!;
+      right[i] = samples[i * 2 + 1]!;
+    }
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     source.connect(this.gainNode);
@@ -86,7 +92,7 @@ export class AudioSink {
         break;
       }
     }
-    return this.audioContext!.createBuffer(1, length, this.audioContext!.sampleRate);
+    return this.audioContext!.createBuffer(2, length, this.audioContext!.sampleRate);
   }
 
   private releaseFallbackBuffer(buffer: AudioBuffer, releaseTime: number): void {
@@ -112,7 +118,10 @@ export class AudioSink {
   setMuted(muted: boolean): void {
     this.muted = muted;
     if (this.gainNode) {
-      this.gainNode.gain.setValueAtTime(this.muted ? 0 : this.volume, this.audioContext?.currentTime ?? 0);
+      this.gainNode.gain.setValueAtTime(
+        this.muted ? 0 : this.volume,
+        this.audioContext?.currentTime ?? 0,
+      );
     }
   }
 

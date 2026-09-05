@@ -16,7 +16,13 @@
     <header class="top-bar">
       <div class="top-bar-inner">
         <div class="brand">
-          <a href="https://terenceang.com" class="logo" aria-label="Terence Ang Home" target="_blank" rel="noopener">
+          <a
+            href="https://terenceang.com"
+            class="logo"
+            aria-label="Terence Ang Home"
+            target="_blank"
+            rel="noopener"
+          >
             TA<span class="logo-sep">://</span><span class="brand-tag">SPECTRUM</span>
           </a>
           <div class="spectrum-ribbon" title="Sinclair ZX Spectrum Ribbon">
@@ -34,7 +40,16 @@
       <!-- Panel Navigation Tabs -->
       <div class="panel-nav-tabs">
         <button id="left-tab-tapes-btn" class="nav-tab-btn active" type="button">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <rect x="2" y="4" width="20" height="16" rx="2"></rect>
             <circle cx="8" cy="12" r="2"></circle>
             <circle cx="16" cy="12" r="2"></circle>
@@ -43,7 +58,16 @@
           <span>Tapes</span>
         </button>
         <button id="left-tab-snapshots-btn" class="nav-tab-btn" type="button">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
             <polyline points="17 21 17 13 7 13 7 21"></polyline>
             <polyline points="7 3 7 8 15 8"></polyline>
@@ -56,8 +80,23 @@
       <div id="panel-tapes-tab" class="panel-tab-content">
         <div class="tape-library-header">
           <span class="tape-library-title">Tape Library</span>
-          <button id="tape-library-add-btn" class="btn" type="button" title="Add tape to library" aria-label="Add tape">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            id="tape-library-add-btn"
+            class="btn"
+            type="button"
+            title="Add tape to library"
+            aria-label="Add tape"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
@@ -66,7 +105,7 @@
         </div>
 
         <!-- Floppy Drive Section (active on +3 model) -->
-        <div id="floppy-drive-section" class="floppy-drive-section" style="display: none;">
+        <div id="floppy-drive-section" class="floppy-drive-section" style="display: none">
           <div class="floppy-drive-header">
             <span class="section-label">FLOPPY DRIVE A:</span>
             <span id="floppy-led" class="drive-led" title="Drive Activity"></span>
@@ -76,7 +115,16 @@
           </div>
           <div class="floppy-drive-controls">
             <label class="control-file-btn" for="disk-file-input" title="Insert Floppy Disk (.dsk)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                 <polyline points="17 21 17 13 7 13 7 21"></polyline>
                 <polyline points="7 3 7 8 15 8"></polyline>
@@ -91,18 +139,60 @@
         </div>
 
         <div class="tape-library-transport">
-          <button id="tape-btn" class="btn btn-accent" type="button" title="Play tape" aria-label="Play/Stop tape">
-            <svg class="icon-tape-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            id="tape-btn"
+            class="btn btn-accent"
+            type="button"
+            title="Play tape"
+            aria-label="Play/Stop tape"
+          >
+            <svg
+              class="icon-tape-play"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
             </svg>
-            <svg class="icon-tape-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+            <svg
+              class="icon-tape-stop"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="display: none"
+            >
               <rect x="5" y="5" width="14" height="14" rx="1"></rect>
             </svg>
             <span id="tape-btn-label">Play</span>
           </button>
 
-          <button id="tape-eject-btn" class="btn" type="button" title="Eject tape" aria-label="Eject tape">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            id="tape-eject-btn"
+            class="btn"
+            type="button"
+            title="Eject tape"
+            aria-label="Eject tape"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polygon points="12 5 5 15 19 15 12 5"></polygon>
               <line x1="5" y1="19" x2="19" y2="19"></line>
             </svg>
@@ -128,8 +218,21 @@
         </div>
 
         <div class="tape-library-load">
-          <label class="control-file-btn" for="snapshot-input" title="Insert Tape or Snapshot (.tap, .tzx, .sna, .z80)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <label
+            class="control-file-btn"
+            for="snapshot-input"
+            title="Insert Tape or Snapshot (.tap, .tzx, .sna, .z80)"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="17 8 12 3 7 8"></polyline>
               <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -140,8 +243,18 @@
         </div>
 
         <div class="tape-library-filter">
-          <input id="tape-library-search" type="text" class="tape-library-search" placeholder="Search…" aria-label="Search tape library" />
-          <select id="tape-library-format-filter" class="control-select" aria-label="Filter by format">
+          <input
+            id="tape-library-search"
+            type="text"
+            class="tape-library-search"
+            placeholder="Search…"
+            aria-label="Search tape library"
+          />
+          <select
+            id="tape-library-format-filter"
+            class="control-select"
+            aria-label="Filter by format"
+          >
             <option value="all" selected>All</option>
             <option value="tap">TAP</option>
             <option value="tzx">TZX</option>
@@ -150,21 +263,68 @@
 
         <div id="tape-library-bulk-bar" class="tape-library-bulk-bar" hidden>
           <span id="tape-library-bulk-count">0 selected</span>
-          <button id="tape-library-bulk-export" class="btn btn-icon" type="button" title="Export selected" aria-label="Export selected">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            id="tape-library-bulk-export"
+            class="btn btn-icon"
+            type="button"
+            title="Export selected"
+            aria-label="Export selected"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
           </button>
-          <button id="tape-library-bulk-delete" class="btn btn-icon" type="button" title="Delete selected" aria-label="Delete selected">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            id="tape-library-bulk-delete"
+            class="btn btn-icon"
+            type="button"
+            title="Delete selected"
+            aria-label="Delete selected"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="3 6 5 6 21 6"></polyline>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <path
+                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              ></path>
             </svg>
           </button>
-          <button id="tape-library-bulk-clear" class="btn btn-icon" type="button" title="Clear selection" aria-label="Clear selection">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            id="tape-library-bulk-clear"
+            class="btn btn-icon"
+            type="button"
+            title="Clear selection"
+            aria-label="Clear selection"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
@@ -178,7 +338,11 @@
       </div>
 
       <!-- Snapshots & Memory Tab Content -->
-      <div id="panel-snapshots-tab" class="panel-tab-content controls-panel-body" style="display: none;">
+      <div
+        id="panel-snapshots-tab"
+        class="panel-tab-content controls-panel-body"
+        style="display: none"
+      >
         <div class="controls-panel-group">
           <span class="section-label">MEMORY SLOTS (1–5)</span>
           <div class="save-state-slots" id="save-state-slots">
@@ -193,32 +357,21 @@
             <span id="state-timestamp" class="state-timestamp">No save state</span>
           </div>
           <div class="memory-slot-actions">
-            <div class="slot-btn-row">
-              <button id="quick-save-btn" class="btn" type="button" title="Save state into this slot (F5)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                  <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                  <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-                <span>Save (F5)</span>
-              </button>
-              <button id="quick-load-btn" class="btn" type="button" title="Load state from this slot (F8)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="1 4 1 10 7 10"></polyline>
-                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                </svg>
-                <span>Load (F8)</span>
-              </button>
-              <button id="delete-state-btn" class="btn btn-danger" type="button" title="Delete current slot state">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                <span>Delete</span>
-              </button>
-            </div>
-            <label class="control-file-btn slot-file-btn" for="snapshot-file-input" title="Load .z80 or .sna file into this slot">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <label
+              class="control-file-btn slot-file-btn"
+              for="snapshot-file-input"
+              title="Load .z80 or .sna file into this slot"
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -227,19 +380,63 @@
               <input id="snapshot-file-input" type="file" accept=".sna,.z80" />
             </label>
             <div class="slot-export-row">
-              <button id="save-snapshot-btn" class="btn btn-accent" type="button" title="Export this slot to file" disabled>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <button
+                id="save-snapshot-btn"
+                class="btn btn-accent"
+                type="button"
+                title="Export this slot to file"
+                disabled
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
                   <polyline points="17 21 17 13 7 13 7 21"></polyline>
                   <polyline points="7 3 7 8 15 8"></polyline>
                 </svg>
                 <span id="export-slot-btn-text">Export Slot 1</span>
               </button>
-              <select id="snapshot-format-select" class="control-select" title="Export format" disabled>
+              <select
+                id="snapshot-format-select"
+                class="control-select"
+                title="Export format"
+                disabled
+              >
                 <option value="z80" selected>.z80</option>
                 <option value="sna">.sna</option>
               </select>
             </div>
+            <button
+              id="delete-state-btn"
+              class="btn btn-danger slot-delete-btn"
+              type="button"
+              title="Delete current slot state"
+              disabled
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path
+                  d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                ></path>
+              </svg>
+              <span>Delete Slot State</span>
+            </button>
           </div>
         </div>
 
@@ -265,8 +462,23 @@
 
     <!-- Panel edge tabs -->
     <div class="panel-tabs-left">
-      <button id="tape-library-toggle" class="btn panel-tab panel-tab-left" type="button" title="Toggle Tape Library" aria-label="Toggle Tape Library">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button
+        id="tape-library-toggle"
+        class="btn panel-tab panel-tab-left"
+        type="button"
+        title="Toggle Tape Library"
+        aria-label="Toggle Tape Library"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <rect x="2" y="4" width="20" height="16" rx="2"></rect>
           <circle cx="8" cy="12" r="2"></circle>
           <circle cx="16" cy="12" r="2"></circle>
@@ -275,8 +487,23 @@
         <span class="panel-tab-label">Tapes</span>
       </button>
 
-      <button id="snapshots-panel-toggle" class="btn panel-tab panel-tab-left" type="button" title="Toggle Snapshots &amp; Memory" aria-label="Toggle Snapshots &amp; Memory">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <button
+        id="snapshots-panel-toggle"
+        class="btn panel-tab panel-tab-left"
+        type="button"
+        title="Toggle Snapshots &amp; Memory"
+        aria-label="Toggle Snapshots &amp; Memory"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
           <polyline points="17 21 17 13 7 13 7 21"></polyline>
           <polyline points="7 3 7 8 15 8"></polyline>
@@ -285,8 +512,23 @@
       </button>
     </div>
 
-    <button id="controls-panel-toggle" class="btn panel-tab panel-tab-right" type="button" title="Toggle controls panel" aria-label="Toggle controls panel">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <button
+      id="controls-panel-toggle"
+      class="btn panel-tab panel-tab-right"
+      type="button"
+      title="Toggle controls panel"
+      aria-label="Toggle controls panel"
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
         <line x1="4" y1="21" x2="4" y2="14"></line>
         <line x1="4" y1="10" x2="4" y2="3"></line>
         <line x1="12" y1="21" x2="12" y2="12"></line>
@@ -315,32 +557,28 @@
               <option value="plus3">+3 (128K + Floppy)</option>
             </select>
           </div>
-          <div class="control-group-stack">
-            <button id="pause-btn" class="btn" type="button" title="Pause emulation" aria-label="Pause/Resume">
-              <svg class="icon-pause" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="6" y="4" width="4" height="16"></rect>
-                <rect x="14" y="4" width="4" height="16"></rect>
-              </svg>
-              <svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
-              <span id="pause-btn-label">Pause</span>
-            </button>
-
-            <button id="reset-btn" class="btn" type="button" title="Reset system" aria-label="Reset system">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                <path d="M3 3v5h5"></path>
-              </svg>
-              <span>Reset</span>
-            </button>
-          </div>
         </div>
 
         <div class="controls-panel-group">
           <span class="section-label">AUDIO</span>
-          <button id="mute-btn" class="btn" type="button" title="Mute/Unmute audio" aria-label="Mute/Unmute audio">
-            <svg id="volume-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            id="mute-btn"
+            class="btn"
+            type="button"
+            title="Mute/Unmute audio"
+            aria-label="Mute/Unmute audio"
+          >
+            <svg
+              id="volume-icon"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
               <path class="vol-wave-1" d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
               <path class="vol-wave-2" d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
@@ -348,10 +586,19 @@
             <span id="mute-btn-label">Mute</span>
           </button>
           <div class="control-group volume-group">
-            <input id="volume-slider" type="range" min="0" max="100" value="50" class="volume-slider" title="Volume" aria-label="Volume slider" />
+            <input
+              id="volume-slider"
+              type="range"
+              min="0"
+              max="100"
+              value="50"
+              class="volume-slider"
+              title="Volume"
+              aria-label="Volume slider"
+            />
             <span id="volume-value" class="volume-value">50%</span>
           </div>
-          <div class="control-group">
+          <div class="control-group" id="ay-stereo-group">
             <select id="audio-mode-select" class="control-select" title="AY Stereo Mode">
               <option value="acb" selected>Stereo ACB (+3 default)</option>
               <option value="abc">Stereo ABC (Melodik)</option>
@@ -378,18 +625,30 @@
             <span id="mcp-indicator-text">MCP: offline</span>
           </div>
         </div>
+
+        <div class="controls-panel-group">
+          <span class="section-label">DIAGNOSTICS</span>
+          <div class="diagnostic-info-card" id="diagnostic-info-card">
+            <div class="diagnostic-info-row">
+              <span class="info-label">FPS:</span>
+              <span class="info-val" id="fps-val">--</span>
+            </div>
+          </div>
+        </div>
       </div>
     </aside>
 
     <!-- Instant Load Confirmation Dialog -->
-    <div id="confirm-load-modal" class="modal-overlay" style="display: none;">
+    <div id="confirm-load-modal" class="modal-overlay" style="display: none">
       <div class="modal">
         <div class="modal-header">
           <h2 class="modal-title">Load Tape</h2>
           <p class="modal-subtitle" id="confirm-load-name"></p>
         </div>
         <div class="modal-body">
-          <p class="confirm-load-text">This will reset the emulator and start loading immediately.</p>
+          <p class="confirm-load-text">
+            This will reset the emulator and start loading immediately.
+          </p>
         </div>
         <div class="modal-footer">
           <button id="confirm-load-cancel" class="btn" type="button">Cancel</button>
@@ -407,15 +666,133 @@
           Sinclair ZX Spectrum<span class="cursor-blink" aria-hidden="true">█</span>
         </h1>
         <p class="app-subtitle">
-          48K / 128K / +3 browser emulator in TypeScript &amp; Web Workers · Zero-latency AudioWorklet · MCP bridge
+          48K / 128K / +3 browser emulator in TypeScript &amp; Web Workers · Zero-latency
+          AudioWorklet · MCP bridge
         </p>
       </section>
 
       <!-- Emulator Frame & Controls -->
       <div class="emulator-panel">
+        <!-- Screen Toolbar (Above Screen) -->
+        <div class="screen-toolbar">
+          <button
+            id="pause-btn"
+            class="btn"
+            type="button"
+            title="Pause emulation"
+            aria-label="Pause/Resume"
+          >
+            <svg
+              class="icon-pause"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            <svg
+              class="icon-play"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              style="display: none"
+            >
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <span id="pause-btn-label">Pause</span>
+          </button>
+
+          <button
+            id="reset-btn"
+            class="btn"
+            type="button"
+            title="Reset system"
+            aria-label="Reset system"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            <span>Reset</span>
+          </button>
+
+          <button
+            id="quick-save-btn"
+            class="btn"
+            type="button"
+            title="Save state into active slot (F5)"
+            aria-label="Save state (F5)"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            <span>Save</span>
+          </button>
+
+          <button
+            id="quick-load-btn"
+            class="btn"
+            type="button"
+            title="Load state from active slot (F8)"
+            aria-label="Load state (F8)"
+            disabled
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="1 4 1 10 7 10"></polyline>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+            </svg>
+            <span>Load</span>
+          </button>
+        </div>
+
         <!-- Canvas Screen Frame -->
         <div class="screen-frame">
-          <canvas id="screen" width="320" height="296" aria-label="ZX Spectrum Screen Output"></canvas>
+          <canvas
+            id="screen"
+            width="320"
+            height="296"
+            aria-label="ZX Spectrum Screen Output"
+          ></canvas>
         </div>
 
         <!-- Terminal Status Console -->
@@ -427,12 +804,16 @@
 
       <!-- Clean Standalone Footer -->
       <footer class="app-footer">
-        <div>v0.2.0 · Terence Ang (<a href="https://terenceang.com" target="_blank" rel="noopener">motionfxdesign</a>)</div>
+        <div>
+          v0.2.0 · Terence Ang (<a href="https://terenceang.com" target="_blank" rel="noopener"
+            >motionfxdesign</a
+          >)
+        </div>
       </footer>
     </main>
 
     <!-- Setup Modal -->
-    <div id="setup-modal" class="modal-overlay" style="display: none;">
+    <div id="setup-modal" class="modal-overlay" style="display: none">
       <div class="modal">
         <div class="modal-header">
           <h2 class="modal-title">ZX Spectrum</h2>
@@ -450,7 +831,16 @@
           <div class="modal-field">
             <label class="modal-label">ROM File(s)</label>
             <label class="modal-file-btn" for="modal-rom-input">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
@@ -458,13 +848,17 @@
               <span id="modal-rom-text">Choose ROM file(s)…</span>
               <input id="modal-rom-input" type="file" accept=".rom,.bin" multiple />
             </label>
-            <p class="modal-hint">48K: one ROM · 128K: two ROMs · +3: four ROMs (ROM 0-3) or 64KB bundle</p>
+            <p class="modal-hint">
+              48K: one ROM · 128K: two ROMs · +3: four ROMs (ROM 0-3) or 64KB bundle
+            </p>
           </div>
         </div>
         <div class="modal-footer">
-          <button id="modal-start-btn" class="btn btn-accent" type="button" disabled>Start Emulator</button>
+          <button id="modal-start-btn" class="btn btn-accent" type="button" disabled>
+            Start Emulator
+          </button>
         </div>
-        <div id="modal-error" class="modal-error" style="display: none;"></div>
+        <div id="modal-error" class="modal-error" style="display: none"></div>
       </div>
     </div>
 

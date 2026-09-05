@@ -208,6 +208,20 @@ See "UI layout" in `docs/architecture.md`.
 
 **Demo**: boot +3 BASIC/+3DOS from a `.dsk` image, load disk software, save/load slot states with F5/F8, and export `.z80` snapshots.
 
+## Audio Fidelity, Diagnostics & Screen Toolbar (2026-09-05)
+
+- [x] **Beeper audio pipeline fix**:
+  - Fixed `AudioWorklet` stereo channel consumption in `beeper-processor.js` (reading stereo sample pairs instead of mono floats), preventing ring buffer overflow dropouts, frame skipping, and 50Hz tearing buzz.
+  - Added 2-channel stereo de-interleaving to fallback `AudioBuffer` allocation and playback in `AudioSink`.
+  - Replaced point-sampling in `Beeper` with continuous-time boxcar integration anti-aliasing across sample intervals, eliminating phase quantization noise and aliasing.
+- [x] **Mono beeper & AY stereo separation**:
+  - Preserved pure mono beeper synthesis on hardware port 0xFE, mixed centered to left and right channels.
+  - Tied AY stereo mode dropdown visibility to machine model (dynamically hidden for 48K; enabled for 128K and +3).
+- [x] **Screen toolbar & diagnostics**:
+  - Relocated Pause, Reset, Save (F5), and Load (F8) into a dedicated `.screen-toolbar` directly above the CRT screen frame.
+  - Added live Diagnostics section in the controls panel with rolling 500ms FPS readout backed by the frame ring buffer sequence counter.
+  - Added slot state deletion button to the Snapshots manager.
+
 ## Outstanding
 
 - **Interactive browser verification is now routine**: as of the 2026-09-05 pass

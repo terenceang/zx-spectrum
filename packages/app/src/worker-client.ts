@@ -26,8 +26,13 @@ export class EmulatorClient {
 
   private latestFallbackFrame: Frame | null = null;
   private latestFallbackAudio: Float32Array | null = null;
+  private fallbackFrameCount = 0;
   private readonly pendingSnapshotRequests: ((data: ArrayBuffer) => void)[] = [];
-  private readonly pendingStateRequests: ((data: { slot: number; data: ArrayBuffer; model: MachineModel }) => void)[] = [];
+  private readonly pendingStateRequests: ((data: {
+    slot: number;
+    data: ArrayBuffer;
+    model: MachineModel;
+  }) => void)[] = [];
 
   onReady?: () => void;
   onError?: (message: string) => void;
@@ -60,8 +65,13 @@ export class EmulatorClient {
       else if (message.type === "error") this.onError?.(message.message);
       else if (message.type === "tapeStatus") this.onTapeStatus?.(message.playing);
       else if (message.type === "diskStatus") {
-        this.onDiskStatus?.({ inserted: message.inserted, motorOn: message.motorOn, track: message.track });
+        this.onDiskStatus?.({
+          inserted: message.inserted,
+          motorOn: message.motorOn,
+          track: message.track,
+        });
       } else if (message.type === "frame") {
+        this.fallbackFrameCount++;
         this.latestFallbackFrame = {
           pixels: new Uint8Array(message.pixels),
           width: message.width,
@@ -71,7 +81,11 @@ export class EmulatorClient {
       } else if (message.type === "snapshotData") {
         this.pendingSnapshotRequests.shift()?.(message.data);
       } else if (message.type === "stateData") {
-        this.pendingStateRequests.shift()?.({ slot: message.slot, data: message.data, model: message.model });
+        this.pendingStateRequests.shift()?.({
+          slot: message.slot,
+          data: message.data,
+          model: message.model,
+        });
       }
     };
 
@@ -153,12 +167,7 @@ export class EmulatorClient {
     });
   }
 
-  loadState(
-    slot: number,
-    data: ArrayBuffer,
-    model: MachineModel,
-    format?: "sna" | "z80",
-  ): void {
+  loadState(slot: number, data: ArrayBuffer, model: MachineModel, format?: "sna" | "z80"): void {
     this.send({ type: "loadState", slot, data, model, format }, [data]);
   }
 
@@ -179,6 +188,13 @@ export class EmulatorClient {
     const f = this.latestFallbackFrame;
     this.latestFallbackFrame = null;
     return f;
+  }
+
+  getFrameCount(): number {
+    if (this.frameReader) {
+      return Math.floor(this.frameReader.getSequence() / 2);
+    }
+    return this.fallbackFrameCount;
   }
 
   takeFallbackAudio(): Float32Array | null {
