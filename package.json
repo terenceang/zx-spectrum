@@ -1,0 +1,32 @@
+{
+  "name": "zx-spectrum",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "author": "Terence Ang (motionfxdesign)",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run build --workspace=@zx-spectrum/mcp-server && node packages/mcp-server/dist/index.js & npm run dev --workspace=@zx-spectrum/app",
+    "build": "npm run build --workspace=@zx-spectrum/core && npm run build --workspace=@zx-spectrum/worker && npm run build --workspace=@zx-spectrum/app && npm run build --workspace=@zx-spectrum/mcp-server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:compatibility": "vitest run packages/core/src/compatibility.test.ts",
+    "test:cpu-exerciser": "vitest run packages/core/src/cpu/zexdoc.test.ts",
+    "test:all": "npm run typecheck && npm run lint && vitest run",
+    "typecheck": "tsc -b",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.19.0",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  }
+}

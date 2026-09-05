@@ -1,0 +1,80 @@
+# Dependencies & package manager
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs & caches
+dist/
+build/
+out/
+*.tsbuildinfo
+.vite/
+.turbo/
+.parcel-cache/
+.cache/
+
+# Scratch/temp working files
+.tmp/
+
+# Test & coverage
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment & local overrides
+.env
+.env.local
+.env.*.local
+*.local
+
+# AI artifacts & agent workspaces
+.gemini/
+.antigravity/
+.claude/
+claude/
+.claude-history/
+claude.json
+.cursor/
+.copilot/
+.openai/
+.windsurf/
+.codeium/
+.cline/
+.roo/
+.aider*
+.v0/
+.devin/
+.jules/
+.Jules/
+AGENTS.md
+CLAUDE.md
+scratch/
+*.transcript.jsonl
+*.chat
+
+# Operating systems & editors
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Local test ROMs — never bundled/committed (see docs/architecture.md: users
+# supply their own ROM dumps at runtime; the app is not allowed to redistribute
+# Sinclair/Amstrad copyrighted ROM images).
+/rom/
+
+# Local test tapes — same copyright reasoning as /rom/ above.
+/Tapes/
+
+# Debug screenshots from the zx-spectrum MCP server's read_screen tool.
+screenshot.png
+image.png
+

@@ -1,0 +1,16 @@
+{
+  "name": "@zx-spectrum/app",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "author": "Terence Ang (motionfxdesign)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@zx-spectrum/core": "*",
+    "@zx-spectrum/worker": "*"
+  }
+}
