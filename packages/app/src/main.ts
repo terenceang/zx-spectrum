@@ -9,6 +9,17 @@ import {
 } from "@zx-spectrum/core";
 import { AudioSink } from "./audio/audioSink.js";
 import { CAPS_SHIFT, KEY_MAP, SYMBOL_CHAR_MAP, SYMBOL_SHIFT } from "./input/keyMapping.js";
+import {
+  DEFAULT_JOYSTICK_KEY_BINDINGS,
+  JOYSTICK_DIRECTIONS,
+  JOYSTICK_KEY_MAP,
+  loadJoystickKeyBindings,
+  loadJoystickType,
+  saveJoystickKeyBindings,
+  saveJoystickType,
+  type JoystickDirection,
+  type JoystickType,
+} from "./input/joystickMapping.js";
 import { Display } from "./ui/display.js";
 import { loadSessionMedia, saveSessionMedia } from "./ui/sessionStore.js";
 import {
@@ -121,6 +132,15 @@ const logContainer = document.getElementById("log-container") as HTMLDivElement 
 const logEntriesEl = document.getElementById("log-entries") as HTMLDivElement | null;
 const saveLogBtn = document.getElementById("save-log-btn") as HTMLButtonElement | null;
 const clearLogBtn = document.getElementById("clear-log-btn") as HTMLButtonElement | null;
+
+// Joystick elements
+const joystickTypeSelect = document.getElementById("joystick-type-select") as HTMLSelectElement;
+const joystickSetupBtn = document.getElementById("joystick-setup-btn") as HTMLButtonElement | null;
+const joystickModal = document.getElementById("joystick-modal") as HTMLDivElement;
+const joystickCloseBtn = document.getElementById("joystick-close-btn") as HTMLButtonElement;
+const joystickResetBtn = document.getElementById("joystick-reset-btn") as HTMLButtonElement;
+const gamepadIndicator = document.getElementById("gamepad-indicator") as HTMLDivElement | null;
+const gamepadIndicatorText = document.getElementById("gamepad-indicator-text") as HTMLSpanElement | null;
 
 // Confirm load dialog elements
 const confirmLoadModal = document.getElementById("confirm-load-modal") as HTMLDivElement;
@@ -1459,6 +1479,143 @@ const onFirstGesture = (): void => {
 };
 window.addEventListener("pointerdown", onFirstGesture, { passive: true });
 
+// Joystick: emulated type (Kempston goes through the real I/O port; the rest
+// are keys on the matrix) fed by a remappable PC keyboard and/or a HID gamepad.
+let joystickType: JoystickType = loadJoystickType();
+let joystickKeyBindings = loadJoystickKeyBindings();
+const kbJoystickState: Record<JoystickDirection, boolean> = {
+  up: false,
+  down: false,
+  left: false,
+  right: false,
+  fire: false,
+};
+const padJoystickState: Record<JoystickDirection, boolean> = { ...kbJoystickState };
+const appliedJoystickState: Record<JoystickDirection, boolean> = { ...kbJoystickState };
+
+function sendJoystickDirection(type: JoystickType, direction: JoystickDirection, down: boolean): void {
+  if (type === "kempston") {
+    client.sendJoystick(direction, down);
+  } else if (type !== "none") {
+    const key = JOYSTICK_KEY_MAP[type][direction];
+    client.sendKey(key.row, key.bit, down);
+  }
+}
+
+function updateJoystickDirection(direction: JoystickDirection): void {
+  const down = kbJoystickState[direction] || padJoystickState[direction];
+  if (down === appliedJoystickState[direction]) return;
+  appliedJoystickState[direction] = down;
+  sendJoystickDirection(joystickType, direction, down);
+}
+
+function setJoystickType(type: JoystickType): void {
+  for (const direction of JOYSTICK_DIRECTIONS) {
+    if (appliedJoystickState[direction]) sendJoystickDirection(joystickType, direction, false);
+    appliedJoystickState[direction] = false;
+  }
+  joystickType = type;
+  saveJoystickType(type);
+  for (const direction of JOYSTICK_DIRECTIONS) updateJoystickDirection(direction);
+}
+
+function directionForCode(code: string): JoystickDirection | undefined {
+  return JOYSTICK_DIRECTIONS.find((d) => joystickKeyBindings[d] === code);
+}
+
+joystickTypeSelect.value = joystickType;
+joystickTypeSelect.addEventListener("change", () => {
+  setJoystickType(joystickTypeSelect.value as JoystickType);
+});
+
+function renderJoystickKeyLabels(): void {
+  for (const direction of JOYSTICK_DIRECTIONS) {
+    const label = joystickModal.querySelector(`[data-key-label="${direction}"]`);
+    if (label) label.textContent = joystickKeyBindings[direction];
+  }
+}
+renderJoystickKeyLabels();
+
+let listeningDirection: JoystickDirection | null = null;
+
+joystickModal.querySelectorAll<HTMLButtonElement>(".joystick-bind-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    joystickModal
+      .querySelectorAll(".joystick-bind-btn")
+      .forEach((b) => b.classList.remove("listening"));
+    listeningDirection = btn.dataset.direction as JoystickDirection;
+    btn.classList.add("listening");
+    btn.textContent = "Press a key…";
+  });
+});
+
+// Captures the next key for whichever direction is being (re)bound, ahead of
+// the main typing/joystick keydown handler below (capture phase runs first).
+window.addEventListener(
+  "keydown",
+  (e) => {
+    if (!listeningDirection) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    joystickKeyBindings[listeningDirection] = e.code;
+    saveJoystickKeyBindings(joystickKeyBindings);
+    renderJoystickKeyLabels();
+    const btn = joystickModal.querySelector(
+      `.joystick-bind-btn[data-direction="${listeningDirection}"]`,
+    ) as HTMLButtonElement;
+    btn.classList.remove("listening");
+    btn.textContent = "Set";
+    listeningDirection = null;
+  },
+  { capture: true },
+);
+
+joystickSetupBtn?.addEventListener("click", () => {
+  joystickModal.style.display = "flex";
+});
+joystickCloseBtn.addEventListener("click", () => {
+  joystickModal.style.display = "none";
+});
+joystickResetBtn.addEventListener("click", () => {
+  joystickKeyBindings = { ...DEFAULT_JOYSTICK_KEY_BINDINGS };
+  saveJoystickKeyBindings(joystickKeyBindings);
+  renderJoystickKeyLabels();
+});
+
+// HID gamepad: D-pad/left-stick -> directions, any of the first 4 buttons -> fire.
+let gamepadIndex: number | null = null;
+
+window.addEventListener("gamepadconnected", (e) => {
+  gamepadIndex = e.gamepad.index;
+  gamepadIndicator?.classList.add("connected");
+  if (gamepadIndicatorText) gamepadIndicatorText.textContent = `Gamepad: ${e.gamepad.id}`;
+});
+
+window.addEventListener("gamepaddisconnected", (e) => {
+  if (gamepadIndex !== e.gamepad.index) return;
+  gamepadIndex = null;
+  for (const direction of JOYSTICK_DIRECTIONS) {
+    padJoystickState[direction] = false;
+    updateJoystickDirection(direction);
+  }
+  gamepadIndicator?.classList.remove("connected");
+  if (gamepadIndicatorText) gamepadIndicatorText.textContent = "Gamepad: none";
+});
+
+function pollGamepad(): void {
+  if (gamepadIndex === null) return;
+  const pad = navigator.getGamepads()[gamepadIndex];
+  if (!pad) return;
+  const axisX = pad.axes[0] ?? 0;
+  const axisY = pad.axes[1] ?? 0;
+  padJoystickState.left = pad.buttons[14]?.pressed === true || axisX < -0.5;
+  padJoystickState.right = pad.buttons[15]?.pressed === true || axisX > 0.5;
+  padJoystickState.up = pad.buttons[12]?.pressed === true || axisY < -0.5;
+  padJoystickState.down = pad.buttons[13]?.pressed === true || axisY > 0.5;
+  padJoystickState.fire = pad.buttons.slice(0, 4).some((b) => b.pressed);
+  for (const direction of JOYSTICK_DIRECTIONS) updateJoystickDirection(direction);
+}
+
 // PC keyboard -> Matrix mapping
 const activeSymbolKeys = new Map<string, { row: number; bit: number }>();
 
@@ -1473,6 +1630,15 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     void quickLoadCurrentSlot();
     return;
+  }
+  if (joystickType !== "none") {
+    const direction = directionForCode(e.code);
+    if (direction) {
+      e.preventDefault();
+      kbJoystickState[direction] = true;
+      updateJoystickDirection(direction);
+      return;
+    }
   }
   if (normalKeyboardToggle.checked) {
     const target = SYMBOL_CHAR_MAP[e.key];
@@ -1492,6 +1658,15 @@ window.addEventListener("keydown", (e) => {
 });
 
 window.addEventListener("keyup", (e) => {
+  if (joystickType !== "none") {
+    const direction = directionForCode(e.code);
+    if (direction) {
+      e.preventDefault();
+      kbJoystickState[direction] = false;
+      updateJoystickDirection(direction);
+      return;
+    }
+  }
   const activeSymbol = activeSymbolKeys.get(e.code);
   if (activeSymbol) {
     e.preventDefault();
@@ -1510,6 +1685,7 @@ function frameLoop(): void {
   const frame = client.pollFrame();
   if (frame) display.render(frame);
   audio.pumpFallbackAudio(client);
+  pollGamepad();
 
   const now = performance.now();
   const elapsed = now - lastFpsUpdate;

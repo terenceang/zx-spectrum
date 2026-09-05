@@ -20,7 +20,7 @@ Everything else lives in two collapsible side panels opened via the edge tabs:
 - **Left panel** — contains two tabs:
   - **Tapes**: Tape library (IndexedDB-backed) with search, format filters, rename, and bulk export/delete, plus tape transport (play/stop, eject), loading-tone and fast-load toggles, and tape file picker. Clicking a saved tape drives a full `LOAD ""` end to end and loads in under a second via ROM fast-load traps.
   - **Snapshots**: 5-slot memory manager with instant thumbnail screenshot preview, timestamp display, slot state deletion, direct `.z80`/`.sna` loading into any slot, and slot export to `.z80` or `.sna` with on-the-fly format translation.
-- **Right panel** — holds machine controls (model selector: 48K / 128K / +3, ROM file loader & setup dialog), floppy disk drive A: controls (track indicator, activity LED, insert/eject `.dsk` images when in +3 mode), audio options (mute, volume, and AY stereo mode: ACB authentic +3, ABC Melodik, or Mono for 128K/+3; 48K beeper is pure mono), keyboard options, MCP bridge status, live diagnostics (FPS), and activity log with a Save Log export button.
+- **Right panel** — holds machine controls (model selector: 48K / 128K / +3, ROM file loader & setup dialog), floppy disk drive A: controls (track indicator, activity LED, insert/eject `.dsk` images when in +3 mode), audio options (mute, volume, and AY stereo mode: ACB authentic +3, ABC Melodik, or Mono for 128K/+3; 48K beeper is pure mono), keyboard options, joystick emulation (Kempston/Sinclair 1/Sinclair 2/Cursor/QAOP with remappable keys and HID gamepad support — see below), MCP bridge status, live diagnostics (FPS), and activity log with a Save Log export button.
 
 ### ROMs
 
@@ -33,6 +33,19 @@ material. Supply your own ROM dump via the modal or settings on first run:
 
 ROMs are cached in your browser's `localStorage` per machine model so you only need
 to supply them once. Active tape, disk, and snapshot sessions persist across reloads.
+
+### Joystick
+
+Pick an emulated joystick type in the right panel's JOYSTICK section:
+
+- **Kempston** — emulated as the real I/O port (0x1F); auto-detected by most games.
+- **Sinclair 1** (keys 1-5), **Sinclair 2** (keys 6-0), **Cursor** (keys 5,6,7,8,0),
+  and **QAOP** (Q/A/O/P + Space) — emulated by pressing the corresponding Spectrum keys.
+
+Click **Configure Keys…** to remap which PC keys drive each direction/fire (defaults to
+the arrow keys + Space); bindings persist in `localStorage`. A connected HID gamepad
+works automatically once a joystick type is selected — D-pad or left stick for
+direction, any of the first 4 buttons for fire.
 
 ## Testing
 

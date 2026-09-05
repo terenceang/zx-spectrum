@@ -14,7 +14,7 @@ npm workspaces monorepo, TypeScript project references enforcing module boundari
   instances (inheriting from `BaseMachine`), handles on-the-fly snapshot export conversion (`exportState`),
   the `postMessage` protocol (`protocol.ts`), and the `SharedArrayBuffer` ring-buffer implementations
   (`ring-buffers.ts`) for tear-free frame and stereo audio transport.
-- `packages/app` — Vite + vanilla TS UI shell: canvas display, keyboard input
+- `packages/app` — Vite + vanilla TS UI shell: canvas display, keyboard/joystick input
   mapping, ROM/snapshot/tape/disk file loading, Web Audio stereo playback, IndexedDB-backed
   tape library and 5-slot save state manager.
 - `packages/test-fixtures` — test-only binary assets (zexdoc.com/zexall.com CPU
@@ -285,6 +285,28 @@ about the machine's hardware, not about any particular input device, so unlike
 codes to these same coordinates, a genuinely device-specific concern) it belongs in
 core and both packages import the one copy.
 
+### Joystick emulation
+
+Kempston is real hardware — it's a byte read on I/O port 0x1F, active-high,
+independent of the keyboard matrix — so it gets its own core class,
+`JoystickState` (`packages/core/src/io/joystick.ts`), composed onto `BaseMachine`
+next to `keyboard` and decoded in each machine's `readPort` (`(port & 0xff) ===
+0x1f`, fully decoded — real hardware partial-decodes fewer bits, but no software
+relies on that). Sinclair 1/2, Cursor, and QAOP joysticks are not separate
+hardware at all — they're just specific keys on the matrix — so they need no core
+support; `packages/app/src/input/joystickMapping.ts` maps each of their
+directions straight to a `MatrixKey`, the same shape `keyMapping.ts` uses.
+
+The app tracks joystick direction state twice — once from a remappable set of PC
+keys, once from an HID gamepad's D-pad/stick/buttons (polled once per rendered
+frame in `frameLoop`) — and ORs the two before sending an event, so keyboard and
+gamepad can drive the same session interchangeably. Whichever emulated type is
+selected decides where that event goes: `client.sendJoystick()` (a
+`joystickEvent` protocol message straight to `JoystickState`) for Kempston, or
+`client.sendKey()` against the type's `MatrixKey` table for the rest. Switching
+type at runtime releases whatever the old mapping was holding down before
+applying the new one, so a direction can't get stuck pressed.
+
 The bridge protocol wire format (`BridgeCommand`), port number (`MCP_BRIDGE_PORT`),
 and recognized file extension maps (`SNAPSHOT_EXTENSIONS`, `TAPE_EXTENSIONS`, `DISK_EXTENSIONS`) are
 defined in `packages/core/src/io/bridgeProtocol.ts` and shared across both the MCP
@@ -328,6 +350,8 @@ that shift with their panel via `body.library-open`/`body.controls-open` classes
     insert/eject `.dsk` floppy images.
   - **AUDIO**: Mute, volume slider, AY stereo mode selector (ACB authentic +3 / ABC Melodik / Mono, shown for 128K/+3; the 48K beeper is pure mono).
   - **OPTIONS**: Normal keyboard toggle.
+  - **JOYSTICK**: Emulated type selector (`#joystick-type-select`: None/Kempston/Sinclair 1/Sinclair 2/Cursor/QAOP),
+    key-remap modal launcher (`#joystick-setup-btn` → `#joystick-modal`), and HID gamepad connection indicator (`#gamepad-indicator`).
   - **MCP BRIDGE**: Live server bridge connection indicator (`#mcp-indicator`).
   - **DIAGNOSTICS**: Live emulation performance telemetry and FPS display (`#fps-val`).
   - **LOGS**: Scrollable activity log (`#log-container`), with level-coded timestamped entries, Save Log text export (`#save-log-btn`), and clear actions (`#clear-log-btn`).

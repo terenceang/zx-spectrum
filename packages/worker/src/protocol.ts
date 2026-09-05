@@ -1,11 +1,12 @@
 import type {
   DiskFormat,
+  KempstonInput,
   MachineModel,
   SnapshotFormat,
   TapeFormat,
 } from "@zx-spectrum/core";
 
-export type { MachineModel, SnapshotFormat, TapeFormat, DiskFormat };
+export type { MachineModel, SnapshotFormat, TapeFormat, DiskFormat, KempstonInput };
 
 export type HostToWorkerMessage =
   | { type: "init"; frameBuffer: SharedArrayBuffer | null; audioBuffer: SharedArrayBuffer | null }
@@ -20,6 +21,7 @@ export type HostToWorkerMessage =
   | { type: "setFastTapeLoad"; enabled: boolean }
   | { type: "setAudioMode"; mode: "mono" | "acb" | "abc" }
   | { type: "keyEvent"; row: number; bit: number; down: boolean }
+  | { type: "joystickEvent"; input: KempstonInput; down: boolean }
   | { type: "pause" }
   | { type: "resume" }
   | { type: "reset"; pageRom1?: boolean }

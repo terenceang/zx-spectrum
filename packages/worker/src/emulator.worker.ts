@@ -224,6 +224,10 @@ self.onmessage = (event: MessageEvent<HostToWorkerMessage>) => {
       currentMachine().keyboard.setKey(message.row, message.bit, message.down);
       break;
     }
+    case "joystickEvent": {
+      currentMachine().joystick.set(message.input, message.down);
+      break;
+    }
     case "pause": {
       stop();
       break;

@@ -18,7 +18,7 @@ npm workspaces monorepo with TypeScript project references:
 
 - `packages/core` — Pure TS emulator engine (Z80 CPU, memory, ULA, loaders, `BaseMachine` hierarchy). No DOM/Worker APIs — isolated for testability.
 - `packages/worker` — Web Worker glue with `SharedArrayBuffer` ring buffers for frame/audio transport.
-- `packages/app` — Vite + vanilla TS UI (canvas, keyboard, audio, file loading).
+- `packages/app` — Vite + vanilla TS UI (canvas, keyboard/joystick, audio, file loading).
 - `packages/mcp-server` — Headless MCP server exposing emulator as tools.
 - `packages/test-fixtures` — Test-only binary assets (CPU exerciser binaries).
 

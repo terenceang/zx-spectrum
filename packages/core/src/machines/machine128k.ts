@@ -49,6 +49,7 @@ export class Machine128k extends BaseMachine<Memory128k> {
     this.tick(4);
 
     if (isAySelectPort) return this.ay.readData();
+    if ((port & 0xff) === 0x1f) return this.joystick.read();
     if (!isUlaPort) return 0xff;
     const earLevel = this.tape.levelAt(this.totalTStates);
     return this.ula.readPort((port >> 8) & 0xff, earLevel);

@@ -668,6 +668,33 @@
         </div>
 
         <div class="controls-panel-group">
+          <span class="section-label">JOYSTICK</span>
+          <div class="control-group">
+            <select id="joystick-type-select" class="control-select" title="Emulated joystick type">
+              <option value="none">None</option>
+              <option value="kempston">Kempston</option>
+              <option value="sinclair1">Sinclair 1 (keys 1-5)</option>
+              <option value="sinclair2">Sinclair 2 (keys 6-0)</option>
+              <option value="cursor">Cursor (keys 5,6,7,8,0)</option>
+              <option value="qaop">QAOP + Space</option>
+            </select>
+          </div>
+          <button
+            id="joystick-setup-btn"
+            class="btn"
+            type="button"
+            title="Map keyboard keys and HID gamepads to the joystick"
+            aria-label="Joystick Setup"
+          >
+            <span>Configure Keys…</span>
+          </button>
+          <div id="gamepad-indicator" title="HID gamepad connection">
+            <span class="dot"></span>
+            <span id="gamepad-indicator-text">Gamepad: none</span>
+          </div>
+        </div>
+
+        <div class="controls-panel-group">
           <span class="section-label">MCP BRIDGE</span>
           <div id="mcp-indicator" title="MCP agent bridge connection (ws://localhost:3005)">
             <span class="dot"></span>
@@ -974,6 +1001,50 @@
           </button>
         </div>
         <div id="modal-error" class="modal-error" style="display: none"></div>
+      </div>
+    </div>
+
+    <!-- Joystick Setup Modal -->
+    <div id="joystick-modal" class="modal-overlay" style="display: none">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 class="modal-title">Joystick Setup</h2>
+          <p class="modal-subtitle">
+            Map keyboard keys to joystick directions. A connected HID gamepad's D-pad/stick and
+            any button work automatically.
+          </p>
+        </div>
+        <div class="modal-body">
+          <div class="joystick-bind-row" data-direction="up">
+            <span class="modal-label">Up</span>
+            <span class="joystick-bind-key" data-key-label="up"></span>
+            <button class="btn joystick-bind-btn" type="button" data-direction="up">Set</button>
+          </div>
+          <div class="joystick-bind-row" data-direction="down">
+            <span class="modal-label">Down</span>
+            <span class="joystick-bind-key" data-key-label="down"></span>
+            <button class="btn joystick-bind-btn" type="button" data-direction="down">Set</button>
+          </div>
+          <div class="joystick-bind-row" data-direction="left">
+            <span class="modal-label">Left</span>
+            <span class="joystick-bind-key" data-key-label="left"></span>
+            <button class="btn joystick-bind-btn" type="button" data-direction="left">Set</button>
+          </div>
+          <div class="joystick-bind-row" data-direction="right">
+            <span class="modal-label">Right</span>
+            <span class="joystick-bind-key" data-key-label="right"></span>
+            <button class="btn joystick-bind-btn" type="button" data-direction="right">Set</button>
+          </div>
+          <div class="joystick-bind-row" data-direction="fire">
+            <span class="modal-label">Fire</span>
+            <span class="joystick-bind-key" data-key-label="fire"></span>
+            <button class="btn joystick-bind-btn" type="button" data-direction="fire">Set</button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="joystick-reset-btn" class="btn" type="button">Reset to Defaults</button>
+          <button id="joystick-close-btn" class="btn btn-accent" type="button">Done</button>
+        </div>
       </div>
     </div>
 

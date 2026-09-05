@@ -80,6 +80,7 @@ export class MachinePlus3 extends BaseMachine<MemoryPlus3> {
     if (isAySelectPort) return this.ay.readData();
     if (isFdcMsrPort) return this.fdc.readMsr();
     if (isFdcDataPort) return this.fdc.readData();
+    if ((port & 0xff) === 0x1f) return this.joystick.read();
     if (!isUlaPort) return 0xff;
 
     const earLevel = this.tape.levelAt(this.totalTStates);

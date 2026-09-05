@@ -6,6 +6,7 @@ import {
   audioBufferByteLength,
   frameBufferByteLength,
   type HostToWorkerMessage,
+  type KempstonInput,
   type MachineModel,
   type WorkerToHostMessage,
 } from "../../worker/src/protocol.js";
@@ -139,6 +140,10 @@ export class EmulatorClient {
 
   sendKey(row: number, bit: number, down: boolean): void {
     this.send({ type: "keyEvent", row, bit, down });
+  }
+
+  sendJoystick(input: KempstonInput, down: boolean): void {
+    this.send({ type: "joystickEvent", input, down });
   }
 
   pause(): void {

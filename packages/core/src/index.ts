@@ -12,6 +12,8 @@ export { MemoryPlus3 } from "./memory/memoryPlus3.js";
 export type { MemoryDevice } from "./memory/memoryDevice.js";
 
 export { KeyboardState } from "./io/keyboard.js";
+export { JoystickState } from "./io/joystick.js";
+export type { KempstonInput } from "./io/joystick.js";
 export { CAPS_SHIFT, SYMBOL_SHIFT, SPECTRUM_KEY_MATRIX, SYMBOL_SHIFT_CHARS } from "./io/spectrumKeys.js";
 export type { MatrixKey } from "./io/spectrumKeys.js";
 

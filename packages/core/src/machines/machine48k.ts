@@ -36,6 +36,7 @@ export class Machine48k extends BaseMachine<Memory48k> {
     const isUlaPort = (port & 0x01) === 0;
     if (isUlaPort) this.applyContentionIfNeeded(port);
     this.tick(4);
+    if ((port & 0xff) === 0x1f) return this.joystick.read();
     if (!isUlaPort) return 0xff;
     const earLevel = this.tape.levelAt(this.totalTStates);
     return this.ula.readPort((port >> 8) & 0xff, earLevel);

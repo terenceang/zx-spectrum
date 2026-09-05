@@ -2,6 +2,7 @@ import type { MemoryAccessTag, Z80Bus } from "../cpu/bus.js";
 import { Flag } from "../cpu/flags.js";
 import { RegIndex } from "../cpu/registers.js";
 import { Z80 } from "../cpu/z80.js";
+import { JoystickState } from "../io/joystick.js";
 import { KeyboardState } from "../io/keyboard.js";
 import { TapeEdgePlayer } from "../loaders/tapePlayer.js";
 import type { TapePulseSequence } from "../loaders/tapePulse.js";
@@ -15,6 +16,7 @@ import type { FrameBuffer } from "./types.js";
 export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> implements Z80Bus {
   readonly cpu: Z80;
   readonly keyboard = new KeyboardState();
+  readonly joystick = new JoystickState();
   readonly tape = new TapeEdgePlayer();
   tapeSoundEnabled = true;
   fastTapeLoad = false;
@@ -46,6 +48,7 @@ export abstract class BaseMachine<M extends MemoryDevice = MemoryDevice> impleme
   reset(): void {
     this.cpu.reset();
     this.keyboard.reset();
+    this.joystick.reset();
     this.ula.reset();
     this.tape.stop();
     this.tStates = 0;

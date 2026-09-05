@@ -224,6 +224,27 @@ See "UI layout" in `docs/architecture.md`.
   - Added direct ROM file loader and ROM setup modal launcher to the Machine controls group.
   - Added slot state deletion button to the Snapshots manager.
 
+## Joystick support (2026-09-05)
+
+- [x] **`JoystickState`** (`packages/core/src/io/joystick.ts`): Kempston joystick
+      emulated as real hardware — a byte read on I/O port 0x1F, active-high,
+      decoded in each machine's `readPort` and composed onto `BaseMachine` next
+      to `keyboard`.
+- [x] **Sinclair 1/2, Cursor, QAOP**: no core changes needed — these are just
+      specific keys on the existing matrix, mapped in the app's
+      `joystickMapping.ts` the same way `keyMapping.ts` maps PC keys.
+- [x] **Remappable keyboard bindings**: a Configure Keys modal captures the next
+      keypress per direction/fire, persisted in `localStorage` (defaults to
+      arrow keys + Space).
+- [x] **HID gamepad support**: D-pad/left-stick for direction, any of the first
+      4 buttons for fire, polled once per rendered frame; connection status
+      shown in the controls panel.
+- [x] **JOYSTICK controls panel section**: type selector (None/Kempston/
+      Sinclair 1/Sinclair 2/Cursor/QAOP), key-remap modal launcher, gamepad
+      indicator.
+
+See "Joystick emulation" in `docs/architecture.md`.
+
 ## Outstanding
 
 - **Interactive browser verification is now routine**: as of the 2026-09-05 pass
