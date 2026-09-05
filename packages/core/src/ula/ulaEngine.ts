@@ -27,11 +27,24 @@ export class UlaEngine {
   private flashPhase = false;
   private flashFrameCounter = 0;
   private framebuffer: Uint8Array | null = null;
+  private readonly contentionTable: Uint8Array;
 
   constructor(
     readonly profile: UlaTimingProfile,
     private readonly keyboard: KeyboardState,
-  ) {}
+  ) {
+    const totalTStates = profile.tStatesPerLine * profile.linesPerFrame;
+    // Over-allocate slightly so we don't need a bounds check if tState overshoots at the very end of a frame
+    this.contentionTable = new Uint8Array(totalTStates + 100);
+    for (let i = profile.firstContendedTstate; i < totalTStates + 100; i++) {
+      const rel = i - profile.firstContendedTstate;
+      const line = Math.floor(rel / profile.tStatesPerLine);
+      if (line >= profile.contendedLines) continue;
+      const offsetInLine = rel % profile.tStatesPerLine;
+      if (offsetInLine >= 128) continue;
+      this.contentionTable[i] = CONTENTION_PATTERN[offsetInLine % 8]!;
+    }
+  }
 
   reset(): void {
     this.borderColorField = 0;
@@ -76,13 +89,7 @@ export class UlaEngine {
 
   /** Contention delay in T-states for a memory/port access landing on `tState`. */
   contentionDelay(tState: number): number {
-    if (tState < this.profile.firstContendedTstate) return 0;
-    const rel = tState - this.profile.firstContendedTstate;
-    const line = Math.floor(rel / this.profile.tStatesPerLine);
-    if (line >= this.profile.contendedLines) return 0;
-    const offsetInLine = rel % this.profile.tStatesPerLine;
-    if (offsetInLine >= 128) return 0;
-    return CONTENTION_PATTERN[offsetInLine % 8]!;
+    return this.contentionTable[tState] ?? 0;
   }
 
   /** Call at the start of a frame before CPU execution begins. */
