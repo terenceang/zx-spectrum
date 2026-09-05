@@ -113,6 +113,10 @@ const tapeLibraryBulkClearBtn = document.getElementById(
 const controlsPanel = document.getElementById("controls-panel") as HTMLDivElement;
 const controlsPanelToggle = document.getElementById("controls-panel-toggle") as HTMLButtonElement;
 const fpsVal = document.getElementById("fps-val") as HTMLSpanElement | null;
+const logContainer = document.getElementById("log-container") as HTMLDivElement | null;
+const logEntriesEl = document.getElementById("log-entries") as HTMLDivElement | null;
+const saveLogBtn = document.getElementById("save-log-btn") as HTMLButtonElement | null;
+const clearLogBtn = document.getElementById("clear-log-btn") as HTMLButtonElement | null;
 
 // Confirm load dialog elements
 const confirmLoadModal = document.getElementById("confirm-load-modal") as HTMLDivElement;
@@ -278,8 +282,85 @@ function currentModel(): MachineModel {
   return modelSelect.value as MachineModel;
 }
 
+interface LogEntry {
+  timestamp: string;
+  message: string;
+  level: "info" | "warn" | "error";
+}
+
+const logEntries: LogEntry[] = [];
+
+function updateLogButtons(): void {
+  const hasEntries = logEntries.length > 0;
+  if (saveLogBtn) saveLogBtn.disabled = !hasEntries;
+  if (clearLogBtn) clearLogBtn.disabled = !hasEntries;
+}
+
+function appendLogEntryUi(entry: LogEntry): void {
+  if (!logEntriesEl) return;
+  const empty = logEntriesEl.querySelector(".log-entry-empty");
+  if (empty) empty.remove();
+
+  const row = document.createElement("div");
+  row.className = `log-entry log-${entry.level}`;
+
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "log-entry-time";
+  timeSpan.textContent = `[${entry.timestamp}]`;
+
+  const msgSpan = document.createElement("span");
+  msgSpan.className = "log-entry-msg";
+  msgSpan.textContent = entry.message;
+
+  row.appendChild(timeSpan);
+  row.appendChild(msgSpan);
+  logEntriesEl.appendChild(row);
+
+  while (logEntriesEl.children.length > 200) {
+    logEntriesEl.removeChild(logEntriesEl.firstChild!);
+  }
+
+  if (logContainer) {
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+  updateLogButtons();
+}
+
+function renderLogs(): void {
+  if (!logEntriesEl) return;
+  logEntriesEl.innerHTML = "";
+  if (logEntries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "log-entry-empty";
+    empty.textContent = "No log entries yet.";
+    logEntriesEl.appendChild(empty);
+    updateLogButtons();
+    return;
+  }
+  for (const entry of logEntries) {
+    appendLogEntryUi(entry);
+  }
+}
+
+function logEvent(message: string, level: "info" | "warn" | "error" = "info"): void {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  const entry: LogEntry = { timestamp: timeStr, message, level };
+  logEntries.push(entry);
+  if (logEntries.length > 500) logEntries.shift();
+  appendLogEntryUi(entry);
+}
+
+function setStatus(message: string, level: "info" | "warn" | "error" = "info"): void {
+  status.textContent = message;
+  logEvent(message, level);
+}
+
+renderLogs();
+
 client.onError = (message) => {
-  status.textContent = `Error: ${message}`;
+  setStatus(`Error: ${message}`, "error");
 };
 
 let lastFpsUpdate = performance.now();
@@ -345,7 +426,7 @@ function updateTapeUi(): void {
 client.onTapeStatus = (playing) => {
   tapePlaying = playing;
   updateTapeUi();
-  status.textContent = playing ? "Tape playing…" : "Tape stopped.";
+  setStatus(playing ? "Tape playing…" : "Tape stopped.");
 };
 
 async function ensureAudioStarted(): Promise<void> {
@@ -485,7 +566,7 @@ diskFileInput?.addEventListener("change", async () => {
   client.loadDisk(data);
   if (diskFileText) diskFileText.textContent = file.name;
   if (diskEjectBtn) diskEjectBtn.disabled = false;
-  status.textContent = `Inserted disk "${file.name}".`;
+  setStatus(`Inserted disk "${file.name}".`);
 });
 
 diskEjectBtn?.addEventListener("click", () => {
@@ -495,7 +576,7 @@ diskEjectBtn?.addEventListener("click", () => {
   if (diskEjectBtn) diskEjectBtn.disabled = true;
   if (floppyStatusText) floppyStatusText.textContent = "No disk inserted";
   if (floppyLed) floppyLed.classList.remove("active");
-  status.textContent = "Disk ejected.";
+  setStatus("Disk ejected.");
 });
 
 let activeSaveStateSlot = 1;
@@ -577,7 +658,7 @@ async function updateSaveStatePreview(slot: number): Promise<void> {
 
 async function quickSaveCurrentSlot(): Promise<void> {
   if (!romLoaded) {
-    status.textContent = "Load a ROM first.";
+    setStatus("Load a ROM first.", "warn");
     return;
   }
   const model = currentModel();
@@ -585,23 +666,23 @@ async function quickSaveCurrentSlot(): Promise<void> {
   const screenshot = canvas.toDataURL("image/png");
   await saveStateToStorage(activeSaveStateSlot, model, res.data, screenshot, "Quick Save", "z80");
   await updateSaveStatePreview(activeSaveStateSlot);
-  status.textContent = `Saved state to slot ${activeSaveStateSlot}.`;
+  setStatus(`Saved state to slot ${activeSaveStateSlot}.`);
 }
 
 async function quickLoadCurrentSlot(): Promise<void> {
   if (!romLoaded) {
-    status.textContent = "Load a ROM first.";
+    setStatus("Load a ROM first.", "warn");
     return;
   }
   const model = currentModel();
   const entry = await loadStateFromStorage(activeSaveStateSlot, model);
   if (!entry) {
-    status.textContent = `Slot ${activeSaveStateSlot} is empty.`;
+    setStatus(`Slot ${activeSaveStateSlot} is empty.`, "warn");
     return;
   }
   client.loadState(activeSaveStateSlot, entry.data.slice(0), entry.model, entry.format);
   const nameLabel = entry.name ? ` (${entry.name})` : "";
-  status.textContent = `Loaded state from slot ${activeSaveStateSlot}${nameLabel}.`;
+  setStatus(`Loaded state from slot ${activeSaveStateSlot}${nameLabel}.`);
   paused = false;
   updatePauseUi();
   await ensureAudioStarted();
@@ -611,7 +692,7 @@ async function deleteCurrentSlot(): Promise<void> {
   const model = currentModel();
   await deleteStateFromStorage(activeSaveStateSlot, model);
   await updateSaveStatePreview(activeSaveStateSlot);
-  status.textContent = `Deleted state in slot ${activeSaveStateSlot}.`;
+  setStatus(`Deleted state in slot ${activeSaveStateSlot}.`);
 }
 
 saveStateSlots?.addEventListener("click", (e) => {
@@ -655,9 +736,13 @@ async function restoreSession(): Promise<void> {
         client.loadTape(storedMedia.format, storedMedia.data.slice(0));
       }
       if (mediaFileText) mediaFileText.textContent = storedMedia.filename;
-      status.textContent = `${model.toUpperCase()} ROM restored (${storedRom.filename}). Loaded "${storedMedia.filename}". Ready.`;
+      setStatus(
+        `${model.toUpperCase()} ROM restored (${storedRom.filename}). Loaded "${storedMedia.filename}". Ready.`,
+      );
     } else {
-      status.textContent = `${model.toUpperCase()} ROM restored (${storedRom.filename}). Load a snapshot, tape, or disk to play.`;
+      setStatus(
+        `${model.toUpperCase()} ROM restored (${storedRom.filename}). Load a snapshot, tape, or disk to play.`,
+      );
     }
     await ensureAudioStarted();
   } else {
@@ -666,6 +751,7 @@ async function restoreSession(): Promise<void> {
   initLibraryState();
   initControlsState();
   await renderLibrary();
+  renderLogs();
   updateFpsUi();
 }
 
@@ -840,7 +926,7 @@ async function onLibraryFileSelect(files: FileList | null): Promise<void> {
 
 function onLibraryTapeClick(entry: TapeEntry): void {
   if (!romLoaded) {
-    status.textContent = "Load a ROM first.";
+    setStatus("Load a ROM first.", "warn");
     return;
   }
   pendingTapeEntry = entry;
@@ -896,7 +982,7 @@ async function confirmInstantLoad(): Promise<void> {
   if (mediaFileText) mediaFileText.textContent = entry.filename;
   await saveSessionMedia({ filename: entry.filename, format: entry.format, data: sessionData });
 
-  status.textContent = `Loaded "${entry.filename}". Fast loading...`;
+  setStatus(`Loaded "${entry.filename}". Fast loading...`);
   paused = false;
   updatePauseUi();
 }
@@ -912,7 +998,7 @@ async function loadRomFiles(files: File[]): Promise<void> {
 
   const validation = validateRomFiles(model, files);
   if (!validation.ok) {
-    status.textContent = validation.error!;
+    setStatus(validation.error!, "warn");
     return;
   }
 
@@ -927,13 +1013,13 @@ async function loadRomFiles(files: File[]): Promise<void> {
   romLoaded = true;
   paused = false;
   updatePauseUi();
-  status.textContent = `${model.toUpperCase()} ROM loaded and reset. Load a snapshot or tape to play.`;
+  setStatus(`${model.toUpperCase()} ROM loaded and reset. Load a snapshot or tape to play.`);
   await ensureAudioStarted();
 }
 
 async function loadMediaFile(file: File): Promise<void> {
   if (!romLoaded) {
-    status.textContent = "Load a ROM first.";
+    setStatus("Load a ROM first.", "warn");
     return;
   }
   const name = file.name.toLowerCase();
@@ -962,7 +1048,7 @@ async function loadMediaFile(file: File): Promise<void> {
     await saveStateToStorage(activeSaveStateSlot, model, slotData, screenshot, file.name, format);
     await updateSaveStatePreview(activeSaveStateSlot);
 
-    status.textContent = `Loaded "${file.name}" into Memory Slot ${activeSaveStateSlot}. Ready.`;
+    setStatus(`Loaded "${file.name}" into Memory Slot ${activeSaveStateSlot}. Ready.`);
     return;
   } else if (tapeExt) {
     const format = TAPE_EXTENSIONS[tapeExt as keyof typeof TAPE_EXTENSIONS];
@@ -978,7 +1064,7 @@ async function loadMediaFile(file: File): Promise<void> {
       data: libraryData,
     });
     await renderLibrary();
-    status.textContent = `Loaded "${file.name}". Tape stopped.`;
+    setStatus(`Loaded "${file.name}". Tape stopped.`);
     paused = false;
     updatePauseUi();
     await ensureAudioStarted();
@@ -992,17 +1078,17 @@ async function loadMediaFile(file: File): Promise<void> {
     client.loadDisk(data);
     if (diskFileText) diskFileText.textContent = file.name;
     if (diskEjectBtn) diskEjectBtn.disabled = false;
-    status.textContent = `Inserted disk "${file.name}".`;
+    setStatus(`Inserted disk "${file.name}".`);
     paused = false;
     updatePauseUi();
     await ensureAudioStarted();
     return;
   } else {
-    status.textContent = `Unrecognized file type: "${file.name}" (expected .sna/.z80/.tap/.tzx/.dsk)`;
+    setStatus(`Unrecognized file type: "${file.name}" (expected .sna/.z80/.tap/.tzx/.dsk)`, "warn");
     return;
   }
 
-  status.textContent = `Loaded "${file.name}". Ready.`;
+  setStatus(`Loaded "${file.name}". Ready.`);
   paused = false;
   updatePauseUi();
   await ensureAudioStarted();
@@ -1026,7 +1112,7 @@ async function switchModel(newModel: MachineModel): Promise<void> {
     client.reset();
     client.resume();
     romLoaded = true;
-    status.textContent = `${newModel.toUpperCase()} ROM loaded from cache (${storedRom.filename}).`;
+    setStatus(`${newModel.toUpperCase()} ROM loaded from cache (${storedRom.filename}).`);
     await ensureAudioStarted();
   } else {
     showSetupModal();
@@ -1128,7 +1214,7 @@ modalStartBtn.addEventListener("click", async () => {
   romLoaded = true;
   paused = false;
   updatePauseUi();
-  status.textContent = `${model.toUpperCase()} ROM loaded and reset. Load a snapshot, tape, or disk to play.`;
+  setStatus(`${model.toUpperCase()} ROM loaded and reset. Load a snapshot, tape, or disk to play.`);
 
   hideSetupModal();
   await ensureAudioStarted();
@@ -1140,12 +1226,14 @@ pauseBtn.addEventListener("click", () => {
     client.pause();
     audio.suspend();
     cancelAnimationFrame(rafHandle);
+    logEvent("Emulation paused.");
   } else {
     client.resume();
     audio.resume();
     lastFpsUpdate = performance.now();
     lastFpsFrameCount = client.getFrameCount();
     rafHandle = requestAnimationFrame(frameLoop);
+    logEvent("Emulation resumed.");
   }
   updatePauseUi();
 });
@@ -1155,20 +1243,43 @@ resetBtn.addEventListener("click", () => {
   lastFpsUpdate = performance.now();
   lastFpsFrameCount = client.getFrameCount();
   updateFpsUi();
-  status.textContent = "System reset.";
+  setStatus("System reset.");
+});
+
+saveLogBtn?.addEventListener("click", () => {
+  if (logEntries.length === 0) return;
+  const lines = logEntries.map((e) => `[${e.timestamp}] [${e.level.toUpperCase()}] ${e.message}`);
+  const text = lines.join("\r\n");
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const dateStr = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const filename = `zx-spectrum-log-${dateStr}.txt`;
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus(`Saved log as "${filename}".`);
+});
+
+clearLogBtn?.addEventListener("click", () => {
+  logEntries.length = 0;
+  renderLogs();
 });
 
 saveSnapshotBtn.addEventListener("click", async () => {
   const model = currentModel();
   const entry = await loadStateFromStorage(activeSaveStateSlot, model);
   if (!entry) {
-    status.textContent = `Slot ${activeSaveStateSlot} is empty.`;
+    setStatus(`Slot ${activeSaveStateSlot} is empty.`, "warn");
     return;
   }
 
   const requestedFormat = snapshotFormatSelect?.value === "sna" ? "sna" : "z80";
   if (model === "plus3" && requestedFormat === "sna") {
-    status.textContent = "Note: .sna does not support +3 paging. Exporting as .z80 instead.";
+    setStatus("Note: .sna does not support +3 paging. Exporting as .z80 instead.", "warn");
   }
   const actualFormat = model === "plus3" && requestedFormat === "sna" ? "z80" : requestedFormat;
   const entryFormat = entry.format ?? "z80";
@@ -1194,7 +1305,7 @@ saveSnapshotBtn.addEventListener("click", async () => {
   a.click();
   URL.revokeObjectURL(url);
 
-  status.textContent = `Exported Slot ${activeSaveStateSlot} as "${filename}".`;
+  setStatus(`Exported Slot ${activeSaveStateSlot} as "${filename}".`);
 });
 
 tapeBtn.addEventListener("click", () => {
@@ -1207,7 +1318,7 @@ tapeEjectBtn?.addEventListener("click", async () => {
   if (mediaFileText) mediaFileText.textContent = "Insert Tape…";
   snapshotInput.value = "";
   await saveSessionMedia(null);
-  status.textContent = "Tape ejected.";
+  setStatus("Tape ejected.");
 });
 
 // Left panel tabs & toggle event listeners

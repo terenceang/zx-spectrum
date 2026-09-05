@@ -47,7 +47,7 @@ since it's real 1982 machine code doing the verification, not our own logic
 checking itself.
 
 **Bug found and fixed (2026-09-01)**: that single-block verification passed but
-missed a real bug, because it never exercised a *multi*-block file. Testing
+missed a real bug, because it never exercised a _multi_-block file. Testing
 against a real commercial `.tap` (3 header/data pairs) showed the header always
 loaded but every following block failed with "R Tape loading error" on real
 hardware ROM code — `parseTap`/`parseTzx` set the pulse level to match the
@@ -69,7 +69,7 @@ load with real loading stripes/sound.
 
 - [x] `Memory128k` — 8 banked 16K RAM banks + 2 paged 16K ROMs behind port 0x7FFD
       (RAM bank, screen bank 5/7, ROM bank, paging lock). Contention follows the
-      *bank* (odd banks 1/3/5/7), not the address slot, matching real hardware.
+      _bank_ (odd banks 1/3/5/7), not the address slot, matching real hardware.
 - [x] `ULA_128K_PROFILE` timing profile (228 T-states/line x 311 lines = 70908/frame,
       36 T-state interrupt, same visible border geometry as 48K)
 - [x] `UlaEngine.renderFrame` generalized from a concrete `Memory48k` param to a
@@ -125,25 +125,25 @@ library storage) had unit coverage. A live Chrome smoke test surfaced four
 bugs, each hidden behind the previous one:
 
 - [x] **Detached-buffer crash**: both the tape-library instant-load path and
-  the regular file-picker/drag-drop path sliced an `ArrayBuffer` for session
-  persistence *after* transferring it to the worker (which detaches it),
-  throwing on every single load and silently aborting mid-flow.
+      the regular file-picker/drag-drop path sliced an `ArrayBuffer` for session
+      persistence _after_ transferring it to the worker (which detaches it),
+      throwing on every single load and silently aborting mid-flow.
 - [x] **Wrong 128K menu keystroke**: the instant-load flow sent `"3\n"`
-  assuming digit keys select the Nth displayed menu row; they're actually
-  direct hotkeys to the ROM's other four entries. `"3"` launched 48 BASIC,
-  not the tape loader.
+      assuming digit keys select the Nth displayed menu row; they're actually
+      direct hotkeys to the ROM's other four entries. `"3"` launched 48 BASIC,
+      not the tape loader.
 - [x] **128K ROM 0→ROM 1 transition hang**: root-caused via headless Z80
-  instrumentation (comparing `Machine48k`, a directly-ROM1-paged
-  `Machine128k`, and the normal ROM0-menu-then-ROM1 path) that navigating the
-  128 menu before loading leaves the machine in a state where multi-stage
-  custom-loader tapes (confirmed on Zaxxon) hang after the first blocks. Fixed
-  by forcing ROM 1 paged in from a cold boot instead (`EmulatorClient.reset(pageRom1)`),
-  bypassing the menu, and unifying the 48K/128K instant-load flow onto one
-  code path. See "Tape library one-click instant load" in `docs/architecture.md`.
+      instrumentation (comparing `Machine48k`, a directly-ROM1-paged
+      `Machine128k`, and the normal ROM0-menu-then-ROM1 path) that navigating the
+      128 menu before loading leaves the machine in a state where multi-stage
+      custom-loader tapes (confirmed on Zaxxon) hang after the first blocks. Fixed
+      by forcing ROM 1 paged in from a cold boot instead (`EmulatorClient.reset(pageRom1)`),
+      bypassing the menu, and unifying the 48K/128K instant-load flow onto one
+      code path. See "Tape library one-click instant load" in `docs/architecture.md`.
 - [x] **Simulated-keystroke timing races**: a pre-existing bug (typing
-  `LOAD ""` letter-by-letter instead of using the single K-cursor keyword
-  key) and two timing margins too tight for sustained scripted use (boot-wait,
-  inter-keystroke gap) — both widened after a full 16-tape library pass.
+      `LOAD ""` letter-by-letter instead of using the single K-cursor keyword
+      key) and two timing margins too tight for sustained scripted use (boot-wait,
+      inter-keystroke gap) — both widened after a full 16-tape library pass.
 
 **Verified**: every tape in the saved library (`Tapes/TAP/*`, 16 files —
 Zaxxon, Prince of Persia, Fairlight x4, The Hobbit x2, Jet Set Willy, Skool
@@ -154,13 +154,13 @@ console errors.
 ## Snapshot save (2026-09-05)
 
 - [x] **`.sna` writer**: `writeSna48k`/`writeSna128k` (`packages/core/src/loaders/sna.ts`)
-  serialize a live machine's CPU/memory/border state to standard `.sna` bytes — the
-  reverse of the existing `parseSna`/`applySnapshotTo48k`/`applySnapshotTo128k`.
-  Round-trip tested (write → parse → apply → verify) for both variants.
+      serialize a live machine's CPU/memory/border state to standard `.sna` bytes — the
+      reverse of the existing `parseSna`/`applySnapshotTo48k`/`applySnapshotTo128k`.
+      Round-trip tested (write → parse → apply → verify) for both variants.
 - [x] **UI**: a Save Snapshot button (controls panel, next to Reset) downloads
-  `spectrum-<model>-<timestamp>.sna`.
+      `spectrum-<model>-<timestamp>.sna`.
 - [x] **MCP**: a `save_snapshot` tool (headless or a connected browser instance,
-  mirroring `read_screen`'s pattern).
+      mirroring `read_screen`'s pattern).
 
 Motivated by a real gap hit this session: asked to get an `.sna` for a specific
 game, no pre-made one existed at the usual preservation archives (only `.tap`/`.tzx`
@@ -171,24 +171,24 @@ machine state by hand. See "Snapshot save/load" in `docs/architecture.md`.
 ## UI: collapsible side panels + tape library management (2026-09-05)
 
 - [x] **Two `position:fixed` side panels** replace the old two-row toolbar +
-  bottom options bar: a left tape library panel and a right controls panel,
-  each toggled by an always-visible edge tab (icon + vertical text label),
-  mutually exclusive (opening one closes the other), closed by default,
-  open/closed state persisted per-panel in `localStorage`.
+      bottom options bar: a left tape library panel and a right controls panel,
+      each toggled by an always-visible edge tab (icon + vertical text label),
+      mutually exclusive (opening one closes the other), closed by default,
+      open/closed state persisted per-panel in `localStorage`.
 - [x] **Tape library CRUD/bulk/filters**: per-item rename (inline, Enter/blur
-  commits, Escape cancels) and delete, bulk select → export or delete
-  (`removeTapes` batches one IndexedDB transaction), text search (name/
-  filename) + format filter (TAP/TZX).
+      commits, Escape cancels) and delete, bulk select → export or delete
+      (`removeTapes` batches one IndexedDB transaction), text search (name/
+      filename) + format filter (TAP/TZX).
 - [x] **Tape playback moved into the library panel**: since the library is
-  where tape loading actually happens, transport (play/stop, eject), the
-  loading-tone/fast-load toggles, and the general Insert Tape/Snapshot file
-  picker all live there now instead of the controls panel.
+      where tape loading actually happens, transport (play/stop, eject), the
+      loading-tone/fast-load toggles, and the general Insert Tape/Snapshot file
+      picker all live there now instead of the controls panel.
 - [x] **MCP bridge status indicator** moved out of the top bar into a new
-  MCP BRIDGE group in the controls panel; the top bar now holds only the
-  brand/logo.
+      MCP BRIDGE group in the controls panel; the top bar now holds only the
+      brand/logo.
 - [x] **Icon + text labels throughout**, replacing icon-only-with-tooltip
-  buttons — the tape library's bulk-action bar is the one deliberate
-  exception (count text + 3 actions already fill the 280px row).
+      buttons — the tape library's bulk-action bar is the one deliberate
+      exception (count text + 3 actions already fill the 280px row).
 
 See "UI layout" in `docs/architecture.md`.
 
@@ -220,6 +220,7 @@ See "UI layout" in `docs/architecture.md`.
 - [x] **Screen toolbar & diagnostics**:
   - Relocated Pause, Reset, Save (F5), and Load (F8) into a dedicated `.screen-toolbar` directly above the CRT screen frame.
   - Added live Diagnostics section in the controls panel with rolling 500ms FPS readout backed by the frame ring buffer sequence counter.
+  - Added Activity Log section with scrollable event viewer and Save Log button in the Controls panel.
   - Added slot state deletion button to the Snapshots manager.
 
 ## Outstanding

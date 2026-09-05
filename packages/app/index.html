@@ -635,6 +635,69 @@
             </div>
           </div>
         </div>
+
+        <div class="controls-panel-group">
+          <span class="section-label">LOGS</span>
+          <div
+            class="log-container"
+            id="log-container"
+            tabindex="0"
+            aria-label="System activity log"
+          >
+            <div class="log-entries" id="log-entries"></div>
+          </div>
+          <div class="log-actions">
+            <button
+              id="save-log-btn"
+              class="btn"
+              type="button"
+              title="Save log to text file"
+              aria-label="Save log"
+              disabled
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              <span>Save Log</span>
+            </button>
+            <button
+              id="clear-log-btn"
+              class="btn"
+              type="button"
+              title="Clear log entries"
+              aria-label="Clear log"
+              disabled
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path
+                  d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                ></path>
+              </svg>
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
       </div>
     </aside>
 

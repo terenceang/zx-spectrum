@@ -20,12 +20,13 @@ Everything else lives in two collapsible side panels opened via the edge tabs:
 - **Left panel** — contains two tabs:
   - **Tapes**: Tape library (IndexedDB-backed) with search, format filters, rename, and bulk export/delete, plus tape transport (play/stop, eject), loading-tone and fast-load toggles, and tape file picker. Clicking a saved tape drives a full `LOAD ""` end to end and loads in under a second via ROM fast-load traps.
   - **Snapshots**: 5-slot memory manager with instant thumbnail screenshot preview, timestamp display, slot state deletion, direct `.z80`/`.sna` loading into any slot, and slot export to `.z80` or `.sna` with on-the-fly format translation.
-- **Right panel** — holds machine controls (model selector: 48K / 128K / +3), floppy disk drive A: controls (track indicator, activity LED, insert/eject `.dsk` images when in +3 mode), audio options (mute, volume, and AY stereo mode: ACB authentic +3, ABC Melodik, or Mono for 128K/+3; 48K beeper is pure mono), keyboard options, MCP bridge status, and live diagnostics (FPS).
+- **Right panel** — holds machine controls (model selector: 48K / 128K / +3), floppy disk drive A: controls (track indicator, activity LED, insert/eject `.dsk` images when in +3 mode), audio options (mute, volume, and AY stereo mode: ACB authentic +3, ABC Melodik, or Mono for 128K/+3; 48K beeper is pure mono), keyboard options, MCP bridge status, live diagnostics (FPS), and activity log with a Save Log export button.
 
 ### ROMs
 
 This app does **not** bundle Sinclair/Amstrad ROM images — that's copyrighted
 material. Supply your own ROM dump via the modal or settings on first run:
+
 - **48K**: a single 16384-byte ROM dump
 - **128K**: two 16384-byte ROM dumps (`128-0.rom` and `128-1.rom`)
 - **+3**: four 16384-byte ROM dumps (`plus3-0.rom` through `plus3-3.rom`) or a single 65536-byte bundle
@@ -58,6 +59,7 @@ send; without them the app still works, just slower.
 ## MCP server
 
 `packages/mcp-server` exposes the emulator as MCP tools:
+
 - `load_rom`: load 48K, 128K, or +3 ROM images (single or multi-file)
 - `load_snapshot`: load `.sna` or `.z80` (v1/v2/v3) snapshots
 - `save_snapshot`: save running emulator state as `.sna` or `.z80` snapshot

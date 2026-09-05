@@ -643,6 +643,69 @@ body.controls-open .app-container {
   font-weight: 600;
 }
 
+.log-container {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.55rem;
+  width: 100%;
+  height: 120px;
+  max-height: 120px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  line-height: 1.4;
+  user-select: text;
+}
+
+.log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.log-entry {
+  display: flex;
+  gap: 0.4rem;
+  word-break: break-word;
+  color: var(--text-secondary);
+}
+
+.log-entry-time {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.log-entry-msg {
+  flex: 1;
+}
+
+.log-entry.log-error .log-entry-msg {
+  color: var(--spec-red);
+}
+
+.log-entry.log-warn .log-entry-msg {
+  color: var(--spec-yellow);
+}
+
+.log-entry-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.65rem;
+}
+
+.log-actions {
+  display: flex;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.log-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
 /* --------------------------------------------------------------------------
    Panel edge tabs
    -------------------------------------------------------------------------- */

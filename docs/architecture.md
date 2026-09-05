@@ -50,7 +50,7 @@ driven by a contention-aware bus.
 the "address held on the bus" placeholder. Real hardware holds the I/R register
 pair on the bus during some of these cycles instead. This gives the correct total
 T-state count per instruction (verified — zexdoc/zexall don't check timing) and the
-correct contention *shape* in the common case, but isn't a per-cycle-exact
+correct contention _shape_ in the common case, but isn't a per-cycle-exact
 contended-address model. Revisit if perfect conformance against FUSE's
 contended-memory test suite is ever needed.
 
@@ -83,6 +83,7 @@ channels for dual-mono playback.
 
 `AyChip` (AY-3-8912) models three independent sound channels (`A`, `B`, `C`), a noise generator
 (17-bit LFSR), and a hardware envelope generator. It supports stereo panning modes:
+
 - **ACB** (authentic +3 default): Channel A panned left, Channel C panned center, Channel B panned right.
 - **ABC** (Melodik interface layout): Channel A panned left, Channel B panned center, Channel C panned right.
 - **Mono**: Channels A, B, and C mixed equally across left and right.
@@ -132,10 +133,10 @@ Tape loading supports two operational modes:
    `HL = checksum`, `C = 1`), and routes return cleanly (to `0x053F: SA-ALL` cleanup for `0x0556`, or popping
    the caller's return address for `0x0569`). If a game switches to a custom turbo loader that bypasses
    ROM routines, the pulse player seamlessly continues real-time audio pulse playback from the exact block boundary.
-    Configurable via `BaseMachine.fastTapeLoad`, worker protocol message `setFastTapeLoad`, UI toggle
-    (`fast-tape-toggle` with `localStorage` persistence, living in the tape library panel's options
-    row alongside `tape-sound-toggle`), and MCP server tools (`set_fast_tape_load`,
-    `load_tape` with `fastLoad` option).
+   Configurable via `BaseMachine.fastTapeLoad`, worker protocol message `setFastTapeLoad`, UI toggle
+   (`fast-tape-toggle` with `localStorage` persistence, living in the tape library panel's options
+   row alongside `tape-sound-toggle`), and MCP server tools (`set_fast_tape_load`,
+   `load_tape` with `fastLoad` option).
 
 Tapes load into the cassette player in the **stopped** state (`isPlaying === false`). Playback is started
 via the UI Play tape button, worker protocol `playTape` message, or MCP `play_tape` tool. When `fastTapeLoad`
@@ -181,6 +182,7 @@ the next until the previous one landed:
 ## Snapshot save/load (`packages/core/src/loaders/sna.ts`, `z80.ts`, `apply.ts`)
 
 ### `.sna` Serialization & Deserialization
+
 `parseSna` reads a `.sna` file (48K: 27-byte header + 49152 bytes RAM; 128K: the
 same header/RAM shape for banks 5/2/current, plus an explicit PC field, port
 `0x7FFD`, and the remaining banks) into a `ParsedSnaSnapshot`; `applySnapshotTo48k`/
@@ -200,8 +202,10 @@ into `.sna` bytes:
   `UlaEngine.borderColor`.
 
 ### `.z80` (v3) Serialization
+
 `writeZ8048k`, `writeZ80128k`, and `writeZ80Plus3` (`packages/core/src/loaders/z80.ts`)
 serialize live machine state to standard Z80 version 3 snapshots:
+
 - **Header**: 30-byte base header (with PC=0 to signify v2/v3) + 55-byte extended header
   (86 bytes total) encoding PC, hardware mode (48K: mode 0; 128K: mode 4; +3: mode 7),
   paging ports `0x7FFD` and `0x1FFD`, AY register state, and flags.
@@ -211,7 +215,9 @@ serialize live machine state to standard Z80 version 3 snapshots:
   mapped to page IDs 3..10.
 
 ### 5-Slot Save State Manager (`packages/app/src/ui/saveStates.ts`)
+
 The left panel's Snapshots tab provides an integrated 5-slot memory manager backed by IndexedDB (`zx-spectrum-save-states`):
+
 - **Live Preview & Metadata**: Each slot captures a 160×120 JPEG thumbnail of the canvas and timestamp or loaded file name.
 - **Quick Save (F5) / Quick Load (F8)**: Instant keyboard shortcuts to save to or restore from the active slot.
 - **Load into Slot**: Loads external `.z80` or `.sna` files directly into a specific memory slot.
@@ -225,6 +231,7 @@ which implements `Z80Bus` and orchestrates CPU execution, contention, ULA render
 keyboard input, tape playback, and audio extraction (`getAudioSamples`).
 
 ### `Machine128k`
+
 - `Memory128k` contends by physical bank (odd banks 1/3/5/7), not by address slot —
   the ULA's video-fetch contention follows whichever RAM chip is actually being
   accessed, so a contended bank stays contended no matter which 16K slot it's
@@ -234,6 +241,7 @@ keyboard input, tape playback, and audio extraction (`getAudioSamples`).
 - Supports stereo panning modes (`ACB`, `ABC`, `Mono`) mixed with beeper and tape audio.
 
 ### `MachinePlus3`
+
 - `MemoryPlus3` implements both port `0x7FFD` and port `0x1FFD`:
   - **Standard Paging**: ROM 0..3 at `0x0000..0x3FFF`, Bank 5 at `0x4000..0x7FFF`, Bank 2 at `0x8000..0xBFFF`, switchable Bank 0..7 at `0xC000..0xFFFF`.
   - **Special All-RAM Modes**: Bit 0 of `0x1FFD` activates 4 all-RAM configurations (0/1/2/3, 4/5/6/7, 4/5/6/3, 4/7/6/3) for CP/M and +3DOS.
@@ -273,7 +281,7 @@ algorithm rather than adding a PNG library for what's otherwise a ~100-line enco
 The key-matrix data `press_key`/`get_status` need (`SPECTRUM_KEY_MATRIX`,
 `SYMBOL_SHIFT_CHARS`) lives in `packages/core/src/io/spectrumKeys.ts` — it's a fact
 about the machine's hardware, not about any particular input device, so unlike
-`packages/app/src/input/keyMapping.ts` (which translates *browser* `KeyboardEvent`
+`packages/app/src/input/keyMapping.ts` (which translates _browser_ `KeyboardEvent`
 codes to these same coordinates, a genuinely device-specific concern) it belongs in
 core and both packages import the one copy.
 
@@ -322,6 +330,7 @@ that shift with their panel via `body.library-open`/`body.controls-open` classes
   - **OPTIONS**: Normal keyboard toggle.
   - **MCP BRIDGE**: Live server bridge connection indicator (`#mcp-indicator`).
   - **DIAGNOSTICS**: Live emulation performance telemetry and FPS display (`#fps-val`).
+  - **LOGS**: Scrollable activity log (`#log-container`), with level-coded timestamped entries, Save Log text export (`#save-log-btn`), and clear actions (`#clear-log-btn`).
 
 Buttons throughout both panels use icon + visible text (`.btn` is `inline-flex` with
 a gap for this), not icon-only-with-tooltip — the tape library's bulk-action bar is
@@ -344,6 +353,7 @@ Cross-Origin-Embedder-Policy: require-corp
 ```
 
 nginx:
+
 ```nginx
 add_header Cross-Origin-Opener-Policy same-origin always;
 add_header Cross-Origin-Embedder-Policy require-corp always;
