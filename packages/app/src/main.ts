@@ -126,9 +126,15 @@ const tapeLibraryBulkClearBtn = document.getElementById(
 
 // Controls panel elements
 const controlsPanel = document.getElementById("controls-panel") as HTMLDivElement;
-const controlsMachineToggle = document.getElementById("controls-machine-toggle") as HTMLButtonElement;
-const controlsInputToggle = document.getElementById("controls-input-toggle") as HTMLButtonElement | null;
-const controlsSystemToggle = document.getElementById("controls-system-toggle") as HTMLButtonElement | null;
+const controlsMachineToggle = document.getElementById(
+  "controls-machine-toggle",
+) as HTMLButtonElement;
+const controlsInputToggle = document.getElementById(
+  "controls-input-toggle",
+) as HTMLButtonElement | null;
+const controlsSystemToggle = document.getElementById(
+  "controls-system-toggle",
+) as HTMLButtonElement | null;
 const fpsVal = document.getElementById("fps-val") as HTMLSpanElement | null;
 const logContainer = document.getElementById("log-container") as HTMLDivElement | null;
 const logEntriesEl = document.getElementById("log-entries") as HTMLDivElement | null;
@@ -153,7 +159,9 @@ const joystickModal = document.getElementById("joystick-modal") as HTMLDivElemen
 const joystickCloseBtn = document.getElementById("joystick-close-btn") as HTMLButtonElement;
 const joystickResetBtn = document.getElementById("joystick-reset-btn") as HTMLButtonElement;
 const gamepadIndicator = document.getElementById("gamepad-indicator") as HTMLDivElement | null;
-const gamepadIndicatorText = document.getElementById("gamepad-indicator-text") as HTMLSpanElement | null;
+const gamepadIndicatorText = document.getElementById(
+  "gamepad-indicator-text",
+) as HTMLSpanElement | null;
 
 // Confirm load dialog elements
 const confirmLoadModal = document.getElementById("confirm-load-modal") as HTMLDivElement;
@@ -300,9 +308,12 @@ function setLeftTab(tab: "tapes" | "snapshots"): void {
 function setRightTab(tab: RightTab): void {
   activeRightTab = tab;
   localStorage.setItem("zx_spectrum_right_tab", tab);
-  if (panelControlsMachineTab) panelControlsMachineTab.style.display = tab === "machine" ? "flex" : "none";
-  if (panelControlsInputTab) panelControlsInputTab.style.display = tab === "input" ? "flex" : "none";
-  if (panelControlsSystemTab) panelControlsSystemTab.style.display = tab === "system" ? "flex" : "none";
+  if (panelControlsMachineTab)
+    panelControlsMachineTab.style.display = tab === "machine" ? "flex" : "none";
+  if (panelControlsInputTab)
+    panelControlsInputTab.style.display = tab === "input" ? "flex" : "none";
+  if (panelControlsSystemTab)
+    panelControlsSystemTab.style.display = tab === "system" ? "flex" : "none";
   controlsMachineToggle.classList.toggle("active", controlsOpen && tab === "machine");
   controlsInputToggle?.classList.toggle("active", controlsOpen && tab === "input");
   controlsSystemToggle?.classList.toggle("active", controlsOpen && tab === "system");
@@ -376,6 +387,15 @@ function appendLogEntryUi(entry: LogEntry): void {
     logContainer.scrollTop = logContainer.scrollHeight;
   }
   updateLogButtons();
+}
+
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function renderLogs(): void {
@@ -859,16 +879,22 @@ async function renderLibrary(): Promise<void> {
     const item = document.createElement("div");
     item.className = "tape-library-item";
     item.dataset.id = tape.id;
+
+    // 🛡️ Sentinel Security Fix: Sanitize variables to prevent XSS when building innerHTML
+    const safeName = escapeHtml(tape.name);
+    const safeFilename = escapeHtml(tape.filename);
+    const safeFormat = escapeHtml(tape.format);
+
     item.innerHTML = `
-      <input type="checkbox" class="tape-library-item-checkbox" ${selectedTapeIds.has(tape.id) ? "checked" : ""} aria-label="Select ${tape.name}" />
-      <span class="tape-library-item-name" title="${tape.filename}">${tape.name}</span>
-      <span class="tape-library-item-format">${tape.format}</span>
-      <button class="tape-library-item-edit" title="Rename" aria-label="Rename ${tape.name}">
+      <input type="checkbox" class="tape-library-item-checkbox" ${selectedTapeIds.has(tape.id) ? "checked" : ""} aria-label="Select ${safeName}" />
+      <span class="tape-library-item-name" title="${safeFilename}">${safeName}</span>
+      <span class="tape-library-item-format">${safeFormat}</span>
+      <button class="tape-library-item-edit" title="Rename" aria-label="Rename ${safeName}">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
         </svg>
       </button>
-      <button class="tape-library-item-delete" title="Remove from library" aria-label="Remove ${tape.name}">
+      <button class="tape-library-item-delete" title="Remove from library" aria-label="Remove ${safeName}">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1558,7 +1584,11 @@ const kbJoystickState: Record<JoystickDirection, boolean> = {
 const padJoystickState: Record<JoystickDirection, boolean> = { ...kbJoystickState };
 const appliedJoystickState: Record<JoystickDirection, boolean> = { ...kbJoystickState };
 
-function sendJoystickDirection(type: JoystickType, direction: JoystickDirection, down: boolean): void {
+function sendJoystickDirection(
+  type: JoystickType,
+  direction: JoystickDirection,
+  down: boolean,
+): void {
   if (type === "kempston") {
     client.sendJoystick(direction, down);
   } else if (type !== "none") {
