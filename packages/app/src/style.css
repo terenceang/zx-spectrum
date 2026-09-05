@@ -242,37 +242,51 @@ body.controls-open .app-container {
 }
 
 .app-title {
+  position: relative;
   font-family: var(--font-mono);
-  font-size: clamp(1.75rem, 5vw, 2.35rem);
-  font-weight: 600;
+  font-size: clamp(1.75rem, 6.5vw, 3.25rem);
+  font-weight: 500;
   color: var(--text);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  margin-bottom: 0.5rem;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.25rem;
+  overflow-wrap: break-word;
+}
+
+.app-title::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.35) 2px,
+    rgba(0, 0, 0, 0.35) 4px
+  );
 }
 
 .cursor-blink {
   color: var(--accent);
-  animation: blink 1s step-start infinite;
+  animation: blink 1.1s step-end infinite;
 }
 
 @keyframes blink {
   0%,
-  50% {
+  100% {
     opacity: 1;
   }
-  50.01%,
-  100% {
+  50% {
     opacity: 0;
   }
 }
 
 .app-subtitle {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
   color: var(--muted);
-  line-height: 1.5;
-  letter-spacing: 0.02em;
+  line-height: 1.7;
+  max-width: 52ch;
 }
 
 /* --------------------------------------------------------------------------
@@ -767,18 +781,25 @@ body.library-open .panel-tabs-left {
   left: 280px;
 }
 
-.panel-tab-right {
+.panel-tabs-right {
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
   right: 0;
   z-index: 41;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: right 0.25s ease;
+}
+
+.panel-tab-right {
   border-right: none;
   border-top-left-radius: var(--radius-sm);
   border-bottom-left-radius: var(--radius-sm);
 }
 
-body.controls-open .panel-tab-right {
+body.controls-open .panel-tabs-right {
   right: 280px;
 }
 
@@ -798,7 +819,7 @@ body.controls-open .panel-tab-right {
     left: 100%;
   }
 
-  body.controls-open .panel-tab-right {
+  body.controls-open .panel-tabs-right {
     right: 100%;
   }
 }

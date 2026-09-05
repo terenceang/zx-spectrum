@@ -126,12 +126,25 @@ const tapeLibraryBulkClearBtn = document.getElementById(
 
 // Controls panel elements
 const controlsPanel = document.getElementById("controls-panel") as HTMLDivElement;
-const controlsPanelToggle = document.getElementById("controls-panel-toggle") as HTMLButtonElement;
+const controlsMachineToggle = document.getElementById("controls-machine-toggle") as HTMLButtonElement;
+const controlsInputToggle = document.getElementById("controls-input-toggle") as HTMLButtonElement | null;
+const controlsSystemToggle = document.getElementById("controls-system-toggle") as HTMLButtonElement | null;
 const fpsVal = document.getElementById("fps-val") as HTMLSpanElement | null;
 const logContainer = document.getElementById("log-container") as HTMLDivElement | null;
 const logEntriesEl = document.getElementById("log-entries") as HTMLDivElement | null;
 const saveLogBtn = document.getElementById("save-log-btn") as HTMLButtonElement | null;
 const clearLogBtn = document.getElementById("clear-log-btn") as HTMLButtonElement | null;
+
+// Controls panel tab content (shown one at a time, switched by the edge tabs above)
+const panelControlsMachineTab = document.getElementById(
+  "panel-controls-machine-tab",
+) as HTMLDivElement | null;
+const panelControlsInputTab = document.getElementById(
+  "panel-controls-input-tab",
+) as HTMLDivElement | null;
+const panelControlsSystemTab = document.getElementById(
+  "panel-controls-system-tab",
+) as HTMLDivElement | null;
 
 // Joystick elements
 const joystickTypeSelect = document.getElementById("joystick-type-select") as HTMLSelectElement;
@@ -265,6 +278,9 @@ let libraryOpen = localStorage.getItem("zx_spectrum_library_open") === "true";
 let controlsOpen = localStorage.getItem("zx_spectrum_controls_open") === "true";
 let activeLeftTab: "tapes" | "snapshots" =
   (localStorage.getItem("zx_spectrum_left_tab") as "tapes" | "snapshots" | null) ?? "tapes";
+type RightTab = "machine" | "input" | "system";
+let activeRightTab: RightTab =
+  (localStorage.getItem("zx_spectrum_right_tab") as RightTab | null) ?? "machine";
 let pendingTapeEntry: TapeEntry | null = null;
 let libraryFilterText = "";
 let libraryFilterFormat: "all" | TapeFormat = "all";
@@ -279,6 +295,17 @@ function setLeftTab(tab: "tapes" | "snapshots"): void {
   leftTabSnapshotsBtn?.classList.toggle("active", tab === "snapshots");
   tapeLibraryToggle?.classList.toggle("active", libraryOpen && tab === "tapes");
   snapshotsPanelToggle?.classList.toggle("active", libraryOpen && tab === "snapshots");
+}
+
+function setRightTab(tab: RightTab): void {
+  activeRightTab = tab;
+  localStorage.setItem("zx_spectrum_right_tab", tab);
+  if (panelControlsMachineTab) panelControlsMachineTab.style.display = tab === "machine" ? "flex" : "none";
+  if (panelControlsInputTab) panelControlsInputTab.style.display = tab === "input" ? "flex" : "none";
+  if (panelControlsSystemTab) panelControlsSystemTab.style.display = tab === "system" ? "flex" : "none";
+  controlsMachineToggle.classList.toggle("active", controlsOpen && tab === "machine");
+  controlsInputToggle?.classList.toggle("active", controlsOpen && tab === "input");
+  controlsSystemToggle?.classList.toggle("active", controlsOpen && tab === "system");
 }
 
 function updateMemoryInfoUi(): void {
@@ -936,12 +963,14 @@ function toggleControls(): void {
   controlsPanel.classList.toggle("open", controlsOpen);
   document.body.classList.toggle("controls-open", controlsOpen);
   localStorage.setItem("zx_spectrum_controls_open", controlsOpen.toString());
+  setRightTab(activeRightTab);
   if (controlsOpen && libraryOpen) toggleLibrary();
 }
 
 function initControlsState(): void {
   controlsPanel.classList.toggle("open", controlsOpen);
   document.body.classList.toggle("controls-open", controlsOpen);
+  setRightTab(activeRightTab);
 }
 
 function stripExtension(filename: string): string {
@@ -1460,7 +1489,39 @@ tapeLibraryBulkExportBtn.addEventListener("click", async () => {
 });
 
 // Controls panel toggle
-controlsPanelToggle.addEventListener("click", toggleControls);
+// Right panel tabs & toggle event listeners
+controlsMachineToggle.addEventListener("click", () => {
+  if (!controlsOpen) {
+    setRightTab("machine");
+    toggleControls();
+  } else if (activeRightTab !== "machine") {
+    setRightTab("machine");
+  } else {
+    toggleControls();
+  }
+});
+
+controlsInputToggle?.addEventListener("click", () => {
+  if (!controlsOpen) {
+    setRightTab("input");
+    toggleControls();
+  } else if (activeRightTab !== "input") {
+    setRightTab("input");
+  } else {
+    toggleControls();
+  }
+});
+
+controlsSystemToggle?.addEventListener("click", () => {
+  if (!controlsOpen) {
+    setRightTab("system");
+    toggleControls();
+  } else if (activeRightTab !== "system") {
+    setRightTab("system");
+  } else {
+    toggleControls();
+  }
+});
 confirmLoadCancel.addEventListener("click", () => {
   confirmLoadModal.style.display = "none";
   pendingTapeEntry = null;

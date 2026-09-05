@@ -23,7 +23,7 @@
             target="_blank"
             rel="noopener"
           >
-            TA<span class="logo-sep">://</span><span class="brand-tag">SPECTRUM</span>
+            TA<span class="logo-sep">://</span><span class="brand-tag">ZX SPECTRUM</span>
           </a>
           <div class="spectrum-ribbon" title="Sinclair ZX Spectrum Ribbon">
             <span class="c-red"></span>
@@ -512,42 +512,92 @@
       </button>
     </div>
 
-    <button
-      id="controls-panel-toggle"
-      class="btn panel-tab panel-tab-right"
-      type="button"
-      title="Toggle controls panel"
-      aria-label="Toggle controls panel"
-    >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
+    <!-- Panel edge tabs (right) -->
+    <div class="panel-tabs-right">
+      <button
+        id="controls-machine-toggle"
+        class="btn panel-tab panel-tab-right"
+        type="button"
+        title="Toggle Machine controls"
+        aria-label="Toggle Machine controls"
       >
-        <line x1="4" y1="21" x2="4" y2="14"></line>
-        <line x1="4" y1="10" x2="4" y2="3"></line>
-        <line x1="12" y1="21" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12" y2="3"></line>
-        <line x1="20" y1="21" x2="20" y2="16"></line>
-        <line x1="20" y1="12" x2="20" y2="3"></line>
-        <line x1="1" y1="14" x2="7" y2="14"></line>
-        <line x1="9" y1="8" x2="15" y2="8"></line>
-        <line x1="17" y1="16" x2="23" y2="16"></line>
-      </svg>
-      <span class="panel-tab-label">Controls</span>
-    </button>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+          <rect x="9" y="9" width="6" height="6"></rect>
+          <line x1="9" y1="1" x2="9" y2="4"></line>
+          <line x1="15" y1="1" x2="15" y2="4"></line>
+          <line x1="9" y1="20" x2="9" y2="23"></line>
+          <line x1="15" y1="20" x2="15" y2="23"></line>
+          <line x1="20" y1="9" x2="23" y2="9"></line>
+          <line x1="20" y1="14" x2="23" y2="14"></line>
+          <line x1="1" y1="9" x2="4" y2="9"></line>
+          <line x1="1" y1="14" x2="4" y2="14"></line>
+        </svg>
+        <span class="panel-tab-label">Machine</span>
+      </button>
+
+      <button
+        id="controls-input-toggle"
+        class="btn panel-tab panel-tab-right"
+        type="button"
+        title="Toggle Input controls (keyboard &amp; joystick)"
+        aria-label="Toggle Input controls"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+          <path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"></path>
+        </svg>
+        <span class="panel-tab-label">Input</span>
+      </button>
+
+      <button
+        id="controls-system-toggle"
+        class="btn panel-tab panel-tab-right"
+        type="button"
+        title="Toggle System info (MCP bridge, diagnostics, logs)"
+        aria-label="Toggle System info"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="3"></circle>
+          <path
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+          ></path>
+        </svg>
+        <span class="panel-tab-label">System</span>
+      </button>
+    </div>
 
     <!-- Controls Panel -->
     <aside id="controls-panel" class="controls-panel" aria-label="Controls">
-      <div class="tape-library-header">
-        <span class="tape-library-title">Controls</span>
-      </div>
-      <div class="controls-panel-body">
+      <!-- Machine Tab Content -->
+      <div id="panel-controls-machine-tab" class="panel-tab-content controls-panel-body">
         <div class="controls-panel-group">
           <span class="section-label">MACHINE</span>
           <div class="control-group">
@@ -655,7 +705,10 @@
             </select>
           </div>
         </div>
+      </div>
 
+      <!-- Input Tab Content -->
+      <div id="panel-controls-input-tab" class="panel-tab-content controls-panel-body" style="display: none">
         <div class="controls-panel-group">
           <span class="section-label">OPTIONS</span>
           <label
@@ -693,7 +746,10 @@
             <span id="gamepad-indicator-text">Gamepad: none</span>
           </div>
         </div>
+      </div>
 
+      <!-- System Tab Content -->
+      <div id="panel-controls-system-tab" class="panel-tab-content controls-panel-body" style="display: none">
         <div class="controls-panel-group">
           <span class="section-label">MCP BRIDGE</span>
           <div id="mcp-indicator" title="MCP agent bridge connection (ws://localhost:3005)">
